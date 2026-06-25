@@ -1,0 +1,27 @@
+# terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+
+# secrets / kube
+*.pem
+*.key
+kubeconfig
+*.kubeconfig
+.env
+.env.*
+!.env.example
+vault-token
+*-unseal-keys*
+
+# editor / os
+.DS_Store
+*.swp
