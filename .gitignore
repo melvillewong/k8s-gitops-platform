@@ -16,6 +16,8 @@ override.tf.json
 *.key
 kubeconfig
 *.kubeconfig
+kubeconfig.yaml
+**/kubeconfig.yaml
 .env
 .env.*
 !.env.example
@@ -25,3 +27,6 @@ vault-token
 # editor / os
 .DS_Store
 *.swp
+
+# custom
+note.md

@@ -1,0 +1,5 @@
+[tools]
+terraform = "1.15.7"
+
+[shell_alias]
+tf = "terraform"
