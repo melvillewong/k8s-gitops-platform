@@ -46,5 +46,5 @@ apps/             # GitOps manifests, reconciled by ArgoCD (not IaC)
 
 ## Related
 
-ADR-0002 (planned): k3d `local-exec` vs community provider.
+ADR-0002 (accepted): object store = Garage, no native state locking.
 `docs/project.md` Decisions; `docs/tasks/task-01-k3d-cluster.md`.
