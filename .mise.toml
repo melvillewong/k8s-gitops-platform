@@ -1,6 +1,7 @@
 [tools]
-k3d = "5.8.3"
+helm = "4.2.3"
 kubectl = "1.35.0"
+k3d = "5.8.3"
 terraform = "1.15.7"
 
 [shell_alias]
