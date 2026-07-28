@@ -23,6 +23,10 @@ kubeconfig.yaml
 !.env.example
 vault-token
 *-unseal-keys*
+secret.yml
+secret.yaml
+**/secret.yml
+**/secret.yaml
 
 # editor / os
 .DS_Store
