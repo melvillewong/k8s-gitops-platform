@@ -1,0 +1,9 @@
+configs:
+  params:
+    server.insecure: true          # because: Traefik terminates TLS; stops argocd-server's double-TLS redirect loop
+
+server:
+  ingress:
+    enabled: true                  # because: chart owns its own Ingress; no separate manifest to drift
+    ingressClassName: traefik      # because: k3s bundles Traefik as default controller
+    hostname: argocd.127.0.0.1.sslip.io   # because: sslip.io resolves to 127.0.0.1, no /etc/hosts or DNS
