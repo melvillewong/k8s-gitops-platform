@@ -47,4 +47,7 @@ apps/             # GitOps manifests, reconciled by ArgoCD (not IaC)
 ## Related
 
 ADR-0002 (accepted): object store = Garage, no native state locking.
+ADR-0003 (accepted): refines "TF owns up to ArgoCD" into an explicit delivery
+boundary; `infra/platform` shrinks to ~just the ArgoCD install, all other
+workloads (Garage, Loki, Vault, observability) move to `apps/` as ArgoCD apps.
 `docs/project.md` Decisions; `docs/tasks/task-01-k3d-cluster.md`.

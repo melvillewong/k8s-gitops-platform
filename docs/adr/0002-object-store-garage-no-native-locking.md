@@ -1,7 +1,33 @@
 # ADR-0002: Self-hosted object store — Garage, and accepting no native state locking
 
-- Status: accepted
+- Status: accepted (amended 02-07-2026)
 - Date: 01-07-2026
+
+## Amendment (02-07-2026): Garage is data-plane only; state stays local
+
+Superseded the "Garage as Terraform state backend" decision below. Garage no
+longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
+**local** state.
+
+- **Why the flip:** storing `infra/platform` state inside the very cluster that
+  state provisions is a circular dependency (Garage down → no `terraform` to
+  repair it), the same chicken-egg that already forces `infra/cluster` local.
+  Remote S3 backend + locking + versioning are already demonstrated in the
+  `learn-terraform` CV entry, so building them again here added complexity
+  (two-phase bootstrap, no-lock caveat) for zero new signal.
+- **Garage now justifies itself as a runtime data-plane store**, not a state
+  store. Sole confirmed consumer: **Loki chunks (Task 07)**, a write-once /
+  immutable-blob workload Garage serves cleanly. Forgejo blobs stay on local
+  PV (S3 adds little there).
+- **Net effect on the locking gap:** moot for state (no state in Garage). The
+  no-consensus / no-`If-None-Match` limitation only ever mattered for a mutable,
+  locked object; Loki chunks need no mutual exclusion.
+- **Kept:** Garage over MinIO (below). **Dropped:** the `s3` backend block,
+  `use_lockfile` discussion as a live concern, and the state-migration bootstrap.
+- CV bullet is now data-plane: "self-hosted S3-compatible object store backing
+  Loki log chunks", non-dup with the AWS S3 state-backend entry.
+
+The original decision text below is retained for history.
 
 ## Context
 
@@ -73,4 +99,4 @@ Use **Garage** (Deuxfleurs, Rust) as the single self-hosted object store, and
 ## Related
 
 ADR-0001 (state boundary: only `infra/platform` state lives in the store).
-`docs/tasks/task-02-garage-state-backend.md`; `docs/project.md` Decisions.
+`docs/tasks/task-03-garage-object-store.md`; `docs/project.md` Decisions.
