@@ -4,12 +4,12 @@ metadata:
   name: forgejo
   namespace: argocd            # Application lives in argocd ns
 spec:
-  project: default  # (unsure how this help)
+  project: default   # built-in wide-open project; single tenant so no repo/namespace restrictions needed yet
   source:
-    repoURL: https://github.com/melvillewong/k8s-devops-platform.git # (can this ref to specific dir)
-    path: apps/forgejo         # <- the dir Argo watches (unsure the relative path)
+    repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+    path: apps/forgejo         # <- the dir Argo watches
     targetRevision: HEAD
-  destination:  # (unsure what these for)
+  destination:
     server: https://kubernetes.default.svc
     namespace: forgejo         # where the workload lands
   syncPolicy:
