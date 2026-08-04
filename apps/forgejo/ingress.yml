@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgejo
+spec:
+  ingressClassName: traefik      # because: k3s bundles Traefik as default controller
+  rules:
+    - host: forgejo.local        # /etc/hosts -> 127.0.0.1; reach via k3d host port 8080 (http) / 8443 (https)
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo
+                port:
+                  number: 3000
