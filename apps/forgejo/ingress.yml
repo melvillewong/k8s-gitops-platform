@@ -5,7 +5,7 @@ metadata:
 spec:
   ingressClassName: traefik      # because: k3s bundles Traefik as default controller
   rules:
-    - host: forgejo.test         # /etc/hosts -> 127.0.0.1; .test avoids .local mDNS interception; reach via k3d host port 8080 (http) / 8443 (https)
+    - host: forgejo.localhost    # *.localhost auto-resolves to 127.0.0.1 in browsers (no /etc/hosts); avoids .local mDNS; reach via k3d host port 8080 (http) / 8443 (https)
       http:
         paths:
           - path: /

@@ -6,4 +6,4 @@ server:
   ingress:
     enabled: true                  # because: chart owns its own Ingress; no separate manifest to drift
     ingressClassName: traefik      # because: k3s bundles Traefik as default controller
-    hostname: argocd.test          # /etc/hosts -> 127.0.0.1; .test avoids .local mDNS interception
+    hostname: argocd.localhost     # *.localhost auto-resolves to 127.0.0.1 in browsers (no /etc/hosts); avoids .local mDNS
