@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default  # (unsure how this help)
   source:
-    repoURL: https://github.com/melvillewong/<repo>.git # (can this ref to specific dir)
+    repoURL: https://github.com/melvillewong/k8s-devops-platform.git # (can this ref to specific dir)
     path: apps/forgejo         # <- the dir Argo watches (unsure the relative path)
     targetRevision: HEAD
   destination:  # (unsure what these for)
