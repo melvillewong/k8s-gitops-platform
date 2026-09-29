@@ -19,12 +19,12 @@ Problems hit while building. Symptom, cause, fix.
 ### `ComparisonError: authentication required: Repository not found`
 
 - **Cause**: private repo, no creds.
-- **Fix**: `argocd repo add https://github.com/<owner>/<repo>.git --username <user> --password <PAT>`.
+- **Fix**: create the labelled repo Secret with kubectl (`note.md` Rebuild flow step 3); no ArgoCD login needed.
 
 ### App sync status `Unknown`
 
 - **Meaning**: ArgoCD cannot read Git, so it has no desired state to compare. See `kubectl -n argocd describe application <app>` (Conditions).
-- **Cause 1**: `TLS handshake timeout` = cannot reach GitHub at all (VPN on).
+- **Cause 1**: `TLS handshake timeout` = cannot reach GitHub at all (VPN on). Also blocks selfHeal: Argo re-checks Git before reverting, so drift stays until VPN off.
 - **Cause 2**: `Write access to repository not granted` = PAT lacks access to the repo (fine-grained: repo not selected or no Contents read).
 - **Note**: status only updates on the next poll (~3 min); force with the hard-refresh command below.
 
@@ -44,6 +44,12 @@ Problems hit while building. Symptom, cause, fix.
 - **Cause**: Helm waits (300s) for pods Ready; pods stuck `ImagePullBackOff`, VPN on (VPN off fixed it).
 - **Check**: `kubectl get pods -A | grep -vE 'Running|Completed'`; `ip route get 1.1.1.1` shows `tun0` = VPN on.
 - **Fix**: VPN off, clean up release (below), re-run.
+
+### `helm_release.argocd` slow on every rebuild (VPN off)
+
+- **Cause**: normal. `mise run down` deletes the node containers, so every image is pulled again; each node pulls separately, and Helm waits for all pods Ready.
+- **Check**: `kubectl -n argocd get events | grep Pulled` shows each pull's time.
+- **Speed-up (not done)**: k3d registry cache (pull-through mirror outside the cluster) survives `down`, so rebuilds reuse images. Consider at the DR drill.
 
 ### `cannot re-use a name that is still in use`
 
