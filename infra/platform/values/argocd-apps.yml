@@ -1,0 +1,13 @@
+applications:
+  root:
+    namespace: argocd
+    project: default
+    source:
+      repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+      path: argocd
+      targetRevision: HEAD
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: argocd
+    syncPolicy:
+      automated: { prune: true, selfHeal: true }
