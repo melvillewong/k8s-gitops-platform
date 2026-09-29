@@ -7,3 +7,36 @@ argocd = "3.4.6"
 
 [shell_alias]
 tf = "terraform"
+
+[env]
+# because: kubectl/argocd find the k3d cluster without a manual export (written by infra/cluster apply)
+KUBECONFIG = "{{config_root}}/infra/cluster/kubeconfig.yaml"
+
+# One-command lifecycle: cluster (k3d) -> platform (ArgoCD) -> ArgoCD delivers everything else.
+# Rebuild metric for the DR drill: `time mise run up`.
+[tasks.cluster]
+description = "Terraform: create k3d cluster + kubeconfig"
+dir = "{{config_root}}/infra/cluster"
+run = "terraform init -input=false && terraform apply -auto-approve -input=false"
+
+[tasks.platform]
+description = "Terraform: install ArgoCD into the cluster"
+depends = ["cluster"]
+dir = "{{config_root}}/infra/platform"
+run = "terraform init -input=false && terraform apply -auto-approve -input=false"
+
+[tasks.up]
+description = "Full rebuild: cluster -> platform -> wait for ArgoCD ready"
+depends = ["platform"]
+run = "kubectl -n argocd wait deploy --all --for=condition=Available --timeout=10m"
+
+[tasks.down]
+description = "Destroy platform then cluster (reverse order)"
+run = [
+  "terraform -chdir={{config_root}}/infra/platform destroy -auto-approve -input=false",
+  "terraform -chdir={{config_root}}/infra/cluster destroy -auto-approve -input=false",
+]
+
+[tasks.status]
+description = "Nodes + ArgoCD applications"
+run = ["kubectl get nodes", "kubectl -n argocd get applications"]
