@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: forgejo
-  labels: { verify: gitops }     # because: task-02 Verify, proves commit-driven sync
 spec:
   replicas: 1                    # RWO PVC + SQLite: one writer only
   selector:
