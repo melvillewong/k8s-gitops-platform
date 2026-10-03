@@ -27,6 +27,20 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
 - CV bullet is now data-plane: "self-hosted S3-compatible object store backing
   Loki log chunks", non-dup with the AWS S3 state-backend entry.
 
+## Re-check (01-10-2026): still no locking; why object storage at all
+
+- **Why object storage, not a database:** Loki stores chunks (and its TSDB
+  index) in object storage or on a filesystem only; filesystem is "not
+  recommended" for production. Postgres is not a Loki backend; Cassandra is
+  deprecated. Chunks are large immutable blobs, the object-store use case.
+- **Garage status unchanged:** S3 compatibility page still lists object lock
+  endpoints and bucket versioning as "Missing". Sept 2026 third-party reports:
+  `PutObject` ignores `If-None-Match` / `If-Match` (CRDT design, no
+  compare-and-swap). Garage's own release notes were not reachable to confirm.
+- **Later consumers (all write-once):** backups (task-09, Forgejo PV and Vault
+  snapshots via restic/Velero), Forgejo LFS/attachments, traces if Tempo is
+  added. Still never Terraform state.
+
 The original decision text below is retained for history.
 
 ## Context
