@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: garage-config
+data:
+  garage.toml: |
+    metadata_dir = "/var/lib/garage/meta"
+    data_dir = "/var/lib/garage/data"
+    db_engine = "lmdb"                 # because: Garage default engine
+    replication_factor = 1             # because: single node, no redundancy possible
+    rpc_bind_addr = "[::]:3901"
+    # rpc_secret comes from env GARAGE_RPC_SECRET (Secret garage-rpc), never in Git
+
+    [s3_api]
+    s3_region = "garage"               # because: cosmetic, but clients must send the same region
+    api_bind_addr = "[::]:3900"

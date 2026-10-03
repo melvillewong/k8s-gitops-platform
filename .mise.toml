@@ -4,6 +4,7 @@ kubectl = "1.35.0"
 k3d = "5.8.3"
 terraform = "1.15.7"
 argocd = "3.4.6"
+awscli = { version = "2.37.7", symlink_bins = "true" }
 
 [shell_alias]
 tf = "terraform"

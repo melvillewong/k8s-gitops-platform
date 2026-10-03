@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: garage
+spec:
+  serviceName: garage
+  replicas: 1                          # because: replication_factor = 1, single node
+  selector:
+    matchLabels: { app: garage }
+  template:
+    metadata:
+      labels: { app: garage }
+    spec:
+      containers:
+        - name: garage
+          image: dxflrs/garage:v2.3.0  # because: pinned for reproducible rebuilds
+          env:
+            - name: GARAGE_CONFIG_FILE # because: explicit path; also applies to `kubectl exec ... /garage` CLI calls
+              value: /etc/garage/garage.toml
+            - name: GARAGE_RPC_SECRET  # because: secret stays out of Git (manual Secret until Vault, task-04)
+              valueFrom:
+                secretKeyRef: { name: garage-rpc, key: rpc-secret }
+          ports:
+            - { name: s3, containerPort: 3900 }
+            - { name: rpc, containerPort: 3901 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }  # because: scheduler bin-packs on requests
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: config, mountPath: /etc/garage }
+            - { name: meta, mountPath: /var/lib/garage/meta }
+            - { name: data, mountPath: /var/lib/garage/data }
+      volumes:
+        - name: config
+          configMap: { name: garage-config }
+  volumeClaimTemplates:
+    - metadata: { name: meta }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 1Gi } }
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }  # because: Loki chunks; local-path does not enforce size

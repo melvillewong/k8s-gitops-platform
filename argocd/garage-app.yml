@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: garage
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+    path: apps/garage
+    targetRevision: HEAD
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: storage
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
