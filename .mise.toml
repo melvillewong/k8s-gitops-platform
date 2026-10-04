@@ -8,6 +8,7 @@ awscli = { version = "2.37.7", symlink_bins = "true" }
 
 [shell_alias]
 tf = "terraform"
+garage = "kubectl -n storage exec garage-0 -- /garage"  # because: Garage CLI lives only inside the pod
 
 [env]
 # because: kubectl/argocd find the k3d cluster without a manual export (written by infra/cluster apply)
