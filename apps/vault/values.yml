@@ -1,0 +1,13 @@
+# Overlay on hashicorp/vault 0.34.1 defaults (full dump: `helm show values hashicorp/vault --version 0.34.1`, not committed).
+# Only apps/vault/values.yml is read by ArgoCD; policies/ and demo-pod.yml are used by scripts/vault-bootstrap.sh and Verify.
+server:
+  standalone:
+    enabled: true # because: single node, file storage on a PVC, secrets survive restarts (dev mode is in-memory)
+  dataStorage:
+    size: 1Gi # because: KV secrets are tiny; default 10Gi wastes local-path disk
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi } # because: box RAM is shared with the observability stack
+
+injector:
+  enabled: true # because: agent sidecar renders secrets into pods by ServiceAccount identity (default "-" follows global.enabled; explicit here)

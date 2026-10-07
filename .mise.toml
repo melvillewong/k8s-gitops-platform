@@ -32,6 +32,10 @@ description = "Full rebuild: cluster -> platform -> wait for ArgoCD ready"
 depends = ["platform"]
 run = "kubectl -n argocd wait deploy --all --for=condition=Available --timeout=10m"
 
+[tasks.vault]
+description = "Vault: init (first run), unseal, configure Kubernetes auth, seed secrets (re-run after any Vault restart)"
+run = "{{config_root}}/scripts/vault-bootstrap.sh"
+
 [tasks.down]
 description = "Destroy platform then cluster (reverse order)"
 run = [
