@@ -63,3 +63,10 @@ Problems hit while building. Symptom, cause, fix.
 
 - **Cause**: kubelet never confirmed container death; StatefulSet can't recreate same-name pod, so apply hangs.
 - **Fix**: `kubectl -n argocd delete pod <pod> --grace-period=0 --force`. Brief `Terminating` (under 30s) is normal.
+
+### Refresh does nothing, apps stuck `Unknown`, pods `Pending`/`Terminating` after suspend
+
+- **Symptom**: `refresh=hard` ignored; `argocd-application-controller-0` `Terminating`, others `Pending`; `kubectl exec` fails `proxy error ... dialing 172.18.0.x:10250, code 502`.
+- **Cause**: agent nodes `NotReady` (`kubectl describe node`: "Kubelet stopped posting node status") after suspend. No kubelet = no pod runs or dies, so no app controller = nothing reconciles.
+- **Check**: `kubectl get nodes` first; force-deleting pods is pointless while agents are `NotReady`.
+- **Fix**: `docker restart k3d-mycluster-agent-0 k3d-mycluster-agent-1 k3d-mycluster-agent-2` (or `k3d cluster stop mycluster && k3d cluster start mycluster`), wait for `Ready`, then force-delete pods still `Terminating`.
