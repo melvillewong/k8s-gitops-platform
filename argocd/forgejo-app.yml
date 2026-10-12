@@ -2,12 +2,12 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: forgejo
-  namespace: argocd            # Application lives in argocd ns
+  namespace: argocd
 spec:
   project: default   # built-in wide-open project; single tenant so no repo/namespace restrictions needed yet
   source:
     repoURL: https://github.com/melvillewong/k8s-devops-platform.git
-    path: apps/forgejo         # <- the dir Argo watches
+    path: apps/forgejo
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
