@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-runners
+  namespace: argocd
+spec:
+  project: default
+  # because: upstream chart + our thin overlay from Git (multi-source, `$values` = the repo source below)
+  sources:
+    - repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set
+      targetRevision: 0.15.0
+      helm:
+        valueFiles: [$values/apps/arc/values.yml]
+    - repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc-runners
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true]
+    # because: needs the controller's CRDs; the first sync may fail until arc-controller lands
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2

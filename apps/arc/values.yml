@@ -1,0 +1,21 @@
+# Overlay for gha-runner-scale-set 0.15.0. Defaults: helm show values oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set --version 0.15.0
+
+# because: repo-level runners, only this repo's jobs can land here
+githubConfigUrl: https://github.com/melvillewong/k8s-devops-platform
+
+# because: GitHub App creds live in a hand-made Secret in this namespace, never in Git
+githubConfigSecret: arc-github-app
+
+# because: this is the `runs-on:` label workflows target
+runnerScaleSetName: arc-runner-set
+
+# because: no idle pods; one ephemeral pod per job, deleted after
+minRunners: 0
+
+# because: box RAM; PR checks rarely run in parallel
+maxRunners: 2
+
+# because: controller lives in another namespace; name its SA (<release>-gha-rs-controller) explicitly
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-controller-gha-rs-controller
