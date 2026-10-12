@@ -1,7 +1,7 @@
 # ADR-0001: Repo layout and Terraform state boundary
 
 - Status: accepted
-- Date: 30-06-2026
+- Date: 30-Jun-26
 
 ## Context
 

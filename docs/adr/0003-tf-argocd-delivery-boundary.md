@@ -1,7 +1,7 @@
 # ADR-0003: Terraform-vs-ArgoCD delivery boundary (thin TF seed, fat GitOps)
 
 - Status: accepted
-- Date: 02-07-2026
+- Date: 02-Jul-26
 
 ## Context
 

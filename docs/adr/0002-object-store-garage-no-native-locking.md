@@ -1,9 +1,9 @@
 # ADR-0002: Self-hosted object store — Garage, and accepting no native state locking
 
-- Status: accepted (amended 02-07-2026)
-- Date: 01-07-2026
+- Status: accepted (amended 02-Jul-26)
+- Date: 01-Jul-26
 
-## Amendment (02-07-2026): Garage is data-plane only; state stays local
+## Amendment (02-Jul-26): Garage is data-plane only; state stays local
 
 Superseded the "Garage as Terraform state backend" decision below. Garage no
 longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
@@ -27,7 +27,7 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
 - CV bullet is now data-plane: "self-hosted S3-compatible object store backing
   Loki log chunks", non-dup with the AWS S3 state-backend entry.
 
-## Re-check (01-10-2026): still no locking; why object storage at all
+## Re-check (01-Oct-26): still no locking; why object storage at all
 
 - **Why object storage, not a database:** Loki stores chunks (and its TSDB
   index) in object storage or on a filesystem only; filesystem is "not
@@ -54,7 +54,7 @@ MinIO was the original pick. It is now unusable as an open dependency:
   edition.
 - Oct 2025: stopped publishing community Docker images / binaries.
 - Dec 2025: co-founder set the repo README to "maintenance mode".
-- 25-04-2026: `minio/minio` archived, read-only. No new features, no
+- 25-Apr-26: `minio/minio` archived, read-only. No new features, no
   guaranteed security patches; official redirect is proprietary AIStor.
 
 Building a portfolio on an archived, unpatched store is a poor security and
