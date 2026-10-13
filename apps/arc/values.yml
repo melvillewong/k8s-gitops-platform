@@ -19,3 +19,20 @@ maxRunners: 2
 controllerServiceAccount:
   namespace: arc-systems
   name: arc-controller-gha-rs-controller
+
+# because: jobs run untrusted-ish code in-cluster; block root inside the runner pod
+template:
+  spec:
+    containers:
+      # name, image and command repeat the chart default: overriding `template` replaces the whole container
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        securityContext:
+          # because: sudo is a setuid binary; this makes the kernel refuse the privilege gain
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          # because: the image's USER is a name (`runner`), and runAsNonRoot can only verify a numeric uid
+          runAsUser: 1001
+          capabilities:
+            drop: [ALL]

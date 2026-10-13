@@ -30,20 +30,21 @@ jobs:
     runs-on: arc-runner-set
     env:
       KUBECONFORM_VERSION: v0.8.0
-      # because: kubeconform only ships built-in k8s schemas; CRDs (Argo Application) come from the community catalogue
-      CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+      # because: kubeconform only ships built-in k8s schemas; CRDs (Argo Application, ARC) come from the community catalogue
+      # pinned to a commit, not main: same schema bytes every run; bump by hand after an ArgoCD/ARC upgrade
+      CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/63669a570e231d4f1f8396d229a1de512bcf0a34/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
         with:
           version: v4.2.3 # same pin as .mise.toml
       - name: install kubeconform
-        # because: the runner user cannot write /usr/local/bin; $HOME/bin needs no sudo
+        # because: the runner user has no root (sudo blocked in apps/arc/values.yml); the per-job temp dir needs none
         run: |
-          mkdir -p "$HOME/bin"
+          mkdir -p "$RUNNER_TEMP/bin"
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
-            | tar -xz -C "$HOME/bin" kubeconform
-          echo "$HOME/bin" >> "$GITHUB_PATH"
+            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: kubeconform (plain manifests + Applications)
         # because: values.yml and *.hcl under apps/ are not k8s objects, so paths are listed explicitly
         run: |
@@ -64,4 +65,4 @@ jobs:
             --version 0.15.0 -d "$RUNNER_TEMP"
           helm template arc-runners "$RUNNER_TEMP/gha-runner-scale-set-0.15.0.tgz" \
             -n arc-runners -f apps/arc/values.yml \
-            | kubeconform -strict -summary -ignore-missing-schemas -
+            | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
