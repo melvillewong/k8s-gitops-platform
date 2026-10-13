@@ -52,6 +52,28 @@ vault_auth write auth/kubernetes/role/demo \
   policies=loki-s3 \
   ttl=15m
 
+# JWT auth for GitHub Actions: Vault verifies the job's OIDC token against GitHub's public keys (no shared secret)
+vault_auth auth list -format=json | jq -e 'has("jwt/")' > /dev/null \
+  || vault_auth auth enable jwt
+vault_auth write auth/jwt/config \
+  oidc_discovery_url="https://token.actions.githubusercontent.com" \
+  bound_issuer="https://token.actions.githubusercontent.com"
+
+# Role ci: only this repo's main branch -> policy ci; token lives about one job (default would be 768h)
+vault_auth write auth/jwt/role/ci - <<'EOF'
+{
+  "role_type": "jwt",
+  "user_claim": "repository",
+  "bound_audiences": ["vault-k8s-devops-platform"],
+  "bound_claims": {
+    "repository": "melvillewong/k8s-devops-platform",
+    "ref": "refs/heads/main"
+  },
+  "token_policies": ["ci"],
+  "token_ttl": "5m"
+}
+EOF
+
 # Seed: Garage S3 key for Loki, read from Garage (source of truth until the init Job writes it here)
 GARAGE_KEY="$(kubectl -n storage exec garage-0 -- /garage key info loki-key --show-secret)"
 KEY_ID="$(awk -F': *' '/^Key ID/ {print $2}' <<< "$GARAGE_KEY")"
@@ -59,4 +81,13 @@ KEY_SECRET="$(awk -F': *' '/^Secret key/ {print $2}' <<< "$GARAGE_KEY")"
 [ -n "$KEY_ID" ] && [ -n "$KEY_SECRET" ] || { echo "could not parse Garage key info output" >&2; exit 1; }
 vault_auth kv put secret/garage/loki-key access_key_id="$KEY_ID" secret_access_key="$KEY_SECRET" > /dev/null
 
-echo "Vault ready: unsealed, kubernetes auth on, secret/garage/loki-key seeded"
+# Seed: Discord webhook from the gitignored .env (kept outside Git, like the unseal keys file); shared by CI now, Alertmanager in task-06
+if [ -f "$ROOT/.env" ] && grep -q '^DISCORD_WEBHOOK_URL=' "$ROOT/.env"; then
+  WEBHOOK_URL="$(grep '^DISCORD_WEBHOOK_URL=' "$ROOT/.env" | cut -d= -f2-)"
+  vault_auth kv put secret/notify/discord webhook_url="$WEBHOOK_URL" > /dev/null
+  echo "seeded secret/notify/discord"
+else
+  echo "skip: no DISCORD_WEBHOOK_URL in .env, secret/notify/discord not seeded" >&2
+fi
+
+echo "Vault ready: unsealed, kubernetes + jwt auth on, secret/garage/loki-key seeded"

@@ -1,0 +1,29 @@
+name: notify-merge
+
+on:
+  push:
+    branches: [main] # because: role ci only accepts ref refs/heads/main
+
+permissions:
+  id-token: write # because: lets the job ask GitHub for its OIDC JWT (grants nothing in Vault)
+  contents: read
+
+jobs:
+  notify:
+    runs-on: arc-runner-set
+    steps:
+      - uses: hashicorp/vault-action@v4
+        with:
+          url: http://vault.vault.svc:8200 # in-cluster service; Vault is never exposed
+          method: jwt
+          role: ci # must match auth/jwt/role/ci in scripts/vault-bootstrap.sh
+          # because: names the recipient (Vault), not GitHub's default aud, so only a token requested for Vault is accepted
+          jwtGithubAudience: vault-k8s-devops-platform # must match the role's bound_audiences
+          # <KV v2 API path> <field> | <env var>; the value is masked in logs
+          secrets: |
+            secret/data/notify/discord webhook_url | DISCORD_WEBHOOK_URL
+      - name: notify
+        run: |
+          curl -sS --fail -X POST -H 'Content-Type: application/json' \
+            -d "{\"content\":\"main updated: ${GITHUB_SHA::7} by ${GITHUB_ACTOR}. ArgoCD will sync.\"}" \
+            "$DISCORD_WEBHOOK_URL"
