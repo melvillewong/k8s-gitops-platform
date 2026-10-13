@@ -1,0 +1,70 @@
+name: pr-validate
+
+on:
+  pull_request:
+    branches: [main]
+
+# because: checks only read the repo; no id-token (Vault login is a separate workflow), no write
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: arc-runner-set # because: must match runnerScaleSetName in apps/arc/values.yml
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.7 # same pin as .mise.toml
+          # because: the default wrapper is a Node script and the ARC runner image has no node on PATH
+          terraform_wrapper: false
+      - name: fmt
+        run: terraform fmt -check -diff -recursive infra
+      - name: validate
+        # because: -backend=false needs no state and no cluster; only providers are downloaded
+        run: |
+          for root in infra/cluster infra/platform; do
+            terraform -chdir="$root" init -backend=false -input=false
+            terraform -chdir="$root" validate
+          done
+
+  manifests:
+    runs-on: arc-runner-set
+    env:
+      KUBECONFORM_VERSION: v0.8.0
+      # because: kubeconform only ships built-in k8s schemas; CRDs (Argo Application, ARC) come from the community catalogue
+      # pinned to a commit, not main: same schema bytes every run; bump by hand after an ArgoCD/ARC upgrade
+      CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/63669a570e231d4f1f8396d229a1de512bcf0a34/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.2.3 # same pin as .mise.toml
+      - name: install kubeconform
+        # because: the runner user has no root (sudo blocked in apps/arc/values.yml); the per-job temp dir needs none
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: kubeconform (plain manifests + Applications)
+        # because: values.yml and *.hcl under apps/ are not k8s objects, so paths are listed explicitly
+        run: |
+          kubeconform -strict -summary \
+            -schema-location default -schema-location "$CRD_SCHEMAS" \
+            apps/forgejo apps/garage apps/vault/demo-pod.yml argocd
+      - name: helm template (vault)
+        # chart version must match targetRevision in argocd/vault-app.yml
+        run: |
+          helm template vault vault --repo https://helm.releases.hashicorp.com \
+            --version 0.34.1 -n vault -f apps/vault/values.yml \
+            | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
+      - name: helm template (arc-runners)
+        # because: helm prints "Pulled:" lines to stdout for OCI charts, which would corrupt the pipe; pull first
+        # chart version must match targetRevision in argocd/arc-runners-app.yml
+        run: |
+          helm pull oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+            --version 0.15.0 -d "$RUNNER_TEMP"
+          helm template arc-runners "$RUNNER_TEMP/gha-runner-scale-set-0.15.0.tgz" \
+            -n arc-runners -f apps/arc/values.yml \
+            | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
