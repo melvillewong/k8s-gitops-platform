@@ -1,0 +1,28 @@
+# because: k3s embeds these in its server binary, listening on localhost only; scrapes fail and fire false TargetDown alerts
+kubeEtcd: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+
+prometheus:
+  prometheusSpec:
+    retention: 7d             # because: a week covers homelab debugging; default 10d costs disk for nothing
+    retentionSize: 4GB        # because: hard cap below the 5Gi PVC, so a cardinality blow-up cannot fill the volume
+    serviceMonitorSelectorNilUsesHelmValues: false  # because: one Prometheus; pick every ServiceMonitor (no release-label trap)
+    podMonitorSelectorNilUsesHelmValues: false      # because: same trap for PodMonitor
+    ruleSelectorNilUsesHelmValues: false            # because: same trap for our PrometheusRule
+    storageSpec:              # because: the default is emptyDir, so all metrics are lost on pod restart
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources: { requests: { storage: 5Gi } }
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1536Mi }   # because: OOMKill Prometheus, not starve the box (15 GB shared with Vault, Loki, ArgoCD)
+
+grafana:
+  ingress:                    # because: same *.localhost + Traefik pattern as ArgoCD and Forgejo, no port-forward
+    enabled: true
+    ingressClassName: traefik
+    hosts: [grafana.localhost]

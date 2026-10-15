@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  # because: upstream chart + our thin overlay from Git (multi-source, `$values` = the repo source below)
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.6.0
+      helm:
+        valueFiles: [$values/apps/monitoring/values.yml]
+    - repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    # because: Prometheus CRDs exceed the 256 KB last-applied annotation of client-side apply
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
