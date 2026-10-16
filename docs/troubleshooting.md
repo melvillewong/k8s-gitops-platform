@@ -70,3 +70,18 @@ Problems hit while building. Symptom, cause, fix.
 - **Cause**: agent nodes `NotReady` (`kubectl describe node`: "Kubelet stopped posting node status") after suspend. No kubelet = no pod runs or dies, so no app controller = nothing reconciles.
 - **Check**: `kubectl get nodes` first; force-deleting pods is pointless while agents are `NotReady`.
 - **Fix**: `docker restart k3d-mycluster-agent-0 k3d-mycluster-agent-1 k3d-mycluster-agent-2` (or `k3d cluster stop mycluster && k3d cluster start mycluster`), wait for `Ready`, then force-delete pods still `Terminating`.
+
+## Monitoring
+
+### Grafana `GF_SECURITY_ADMIN_PASSWORD__FILE is not supported with the distroless Grafana image`
+
+- **Cause**: chart default image tag is `<version>-distroless`; `__FILE` env needs the image's `/run.sh`, which distroless lacks. Fails at `helm template`.
+- **Fix**: `GF_SECURITY_ADMIN_PASSWORD: $__file{/vault/secrets/grafana}`; Grafana expands `$__file{}` itself.
+
+### New Grafana pod `CreateContainerConfigError: secret "monitoring-grafana" not found`
+
+- **Symptom**: after moving the admin password to `grafana.env`, the new pod is stuck, the old pod keeps running (rolling update), app `Progressing`; checks hit the old pod and return `401`.
+- **Cause**: setting `env.GF_SECURITY_ADMIN_PASSWORD` stops the chart creating its admin Secret (`templates/secret.yaml` condition) and ArgoCD prunes it, but the admin user (`GF_SECURITY_ADMIN_USER`, sidecars' `REQ_USERNAME`) still references it. The same switch drops the sidecars' `REQ_PASSWORD`, so their reload API calls would `401`.
+- **Fix**: `grafana.env.GF_SECURITY_ADMIN_USER: admin`; `sidecar.dashboards.skipReload: true` (Grafana re-reads dashboard files every 30 s); `sidecar.datasources.skipReload: true` + `initDatasources: true`.
+- **Check**: `helm template ... | grep -c secretKeyRef` = 0; pick the newest pod with `--sort-by=.metadata.creationTimestamp`.
+- **Lesson**: before overriding a chart value, grep the chart's `templates/` for that key; one value can toggle several templates.
