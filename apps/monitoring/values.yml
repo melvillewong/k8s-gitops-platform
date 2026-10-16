@@ -26,3 +26,14 @@ grafana:
     enabled: true
     ingressClassName: traefik
     hosts: [grafana.localhost]
+  env:
+    GF_SECURITY_ADMIN_PASSWORD: $__file{/vault/secrets/grafana}  # because: distroless image has no /run.sh for __FILE; Grafana expands $__file itself
+  podAnnotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: grafana
+    vault.hashicorp.com/agent-pre-populate-only: "true" # because: Grafana reads the password only at start; no sidecar needed
+    vault.hashicorp.com/agent-inject-secret-grafana: secret/data/grafana/admin
+    vault.hashicorp.com/agent-inject-template-grafana: |
+      {{- with secret "secret/data/grafana/admin" -}}
+      {{ .Data.data.password }}
+      {{- end }}

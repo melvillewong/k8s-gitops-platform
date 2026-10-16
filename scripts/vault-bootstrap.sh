@@ -40,10 +40,21 @@ vault_auth auth list -format=json | jq -e 'has("kubernetes/")' > /dev/null \
   || vault_auth auth enable kubernetes
 vault_auth write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc:443"
 
+# JWT auth for GitHub Actions: Vault verifies the job's OIDC token against GitHub's public keys (no shared secret)
+vault_auth auth list -format=json | jq -e 'has("jwt/")' > /dev/null \
+  || vault_auth auth enable jwt
+vault_auth write auth/jwt/config \
+  oidc_discovery_url="https://token.actions.githubusercontent.com" \
+  bound_issuer="https://token.actions.githubusercontent.com"
+
+echo "kubernetes + jwt auth on"
+
 # Policies as code: apps/vault/policies/<name>.hcl
 for f in "$ROOT"/apps/vault/policies/*.hcl; do
   vault_auth policy write "$(basename "$f" .hcl)" - < "$f"
 done
+
+echo "policies loaded successfully"
 
 # Role: SA demo in ns vault-demo -> policy loki-s3 (Loki gets its own role in task-07)
 vault_auth write auth/kubernetes/role/demo \
@@ -52,12 +63,12 @@ vault_auth write auth/kubernetes/role/demo \
   policies=loki-s3 \
   ttl=15m
 
-# JWT auth for GitHub Actions: Vault verifies the job's OIDC token against GitHub's public keys (no shared secret)
-vault_auth auth list -format=json | jq -e 'has("jwt/")' > /dev/null \
-  || vault_auth auth enable jwt
-vault_auth write auth/jwt/config \
-  oidc_discovery_url="https://token.actions.githubusercontent.com" \
-  bound_issuer="https://token.actions.githubusercontent.com"
+# Role: SA monitoring-grafana in ns monitoring -> policy grafana
+vault_auth write auth/kubernetes/role/grafana \
+  bound_service_account_names=monitoring-grafana \
+  bound_service_account_namespaces=monitoring \
+  policies=grafana \
+  ttl=15m
 
 # Role ci: only this repo's main branch -> policy ci; token lives about one job (default would be 768h)
 vault_auth write auth/jwt/role/ci - <<'EOF'
@@ -80,14 +91,23 @@ KEY_ID="$(awk -F': *' '/^Key ID/ {print $2}' <<< "$GARAGE_KEY")"
 KEY_SECRET="$(awk -F': *' '/^Secret key/ {print $2}' <<< "$GARAGE_KEY")"
 [ -n "$KEY_ID" ] && [ -n "$KEY_SECRET" ] || { echo "could not parse Garage key info output" >&2; exit 1; }
 vault_auth kv put secret/garage/loki-key access_key_id="$KEY_ID" secret_access_key="$KEY_SECRET" > /dev/null
+echo "secret/garage/loki-key seeded"
 
 # Seed: Discord webhook from the gitignored .env (kept outside Git, like the unseal keys file); shared by CI now, Alertmanager in task-06
 if [ -f "$ROOT/.env" ] && grep -q '^DISCORD_WEBHOOK_URL=' "$ROOT/.env"; then
   WEBHOOK_URL="$(grep '^DISCORD_WEBHOOK_URL=' "$ROOT/.env" | cut -d= -f2-)"
   vault_auth kv put secret/notify/discord webhook_url="$WEBHOOK_URL" > /dev/null
-  echo "seeded secret/notify/discord"
+  echo "secret/notify/discord seeded"
 else
   echo "skip: no DISCORD_WEBHOOK_URL in .env, secret/notify/discord not seeded" >&2
 fi
 
-echo "Vault ready: unsealed, kubernetes + jwt auth on, secret/garage/loki-key seeded"
+if ! vault_auth kv get secret/grafana/admin > /dev/null 2>&1; then
+  # password via stdin (password=-), so it never appears in a process list
+  openssl rand -base64 24 | tr -d '\n' | vault_auth kv put secret/grafana/admin password=- > /dev/null
+  echo "secret/grafana/admin seeded"
+else
+  echo "secret/grafana/admin already exists"
+fi
+
+echo "Vault ready: unsealed"
