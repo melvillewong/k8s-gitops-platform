@@ -44,3 +44,4 @@ grafana:
     datasources:
       skipReload: true        # because: same reason; no reload call
       initDatasources: true   # because: without a reload call, datasources must be on disk before Grafana starts
+      watchMethod: LIST       # because: the init container reuses this; WATCH never exits, so the pod stays at Init:0/2

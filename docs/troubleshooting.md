@@ -85,3 +85,9 @@ Problems hit while building. Symptom, cause, fix.
 - **Fix**: `grafana.env.GF_SECURITY_ADMIN_USER: admin`; `sidecar.dashboards.skipReload: true` (Grafana re-reads dashboard files every 30 s); `sidecar.datasources.skipReload: true` + `initDatasources: true`.
 - **Check**: `helm template ... | grep -c secretKeyRef` = 0; pick the newest pod with `--sort-by=.metadata.creationTimestamp`.
 - **Lesson**: before overriding a chart value, grep the chart's `templates/` for that key; one value can toggle several templates.
+
+### Grafana pod stuck `Init:0/2` after `initDatasources: true`
+
+- **Symptom**: `grafana-init-sc-datasources` logs `Initial sync complete` then repeats `Loading incluster config...` forever; `vault-agent-init` waits `PodInitializing`; old pod keeps running; app `Degraded` after the 10 min progress deadline.
+- **Cause**: the init container takes `METHOD` from `sidecar.datasources.watchMethod` (default `WATCH`), which never exits; init containers run in order, so the pod never starts.
+- **Fix**: `sidecar.datasources.watchMethod: LIST` (list once, write, exit). Do not delete the old pod: the Deployment removes it once the new one is Ready.
