@@ -27,6 +27,7 @@ grafana:
     ingressClassName: traefik
     hosts: [grafana.localhost]
   env:
+    GF_SECURITY_ADMIN_USER: admin   # because: with the password from Vault the chart stops creating its admin Secret, but still reads the user from it
     GF_SECURITY_ADMIN_PASSWORD: $__file{/vault/secrets/grafana}  # because: distroless image has no /run.sh for __FILE; Grafana expands $__file itself
   podAnnotations:
     vault.hashicorp.com/agent-inject: "true"
@@ -37,3 +38,9 @@ grafana:
       {{- with secret "secret/data/grafana/admin" -}}
       {{ .Data.data.password }}
       {{- end }}
+  sidecar:
+    dashboards:
+      skipReload: true        # because: the reload API needs the admin password, which only Grafana sees; Grafana re-reads dashboard files every 30s anyway
+    datasources:
+      skipReload: true        # because: same reason; no reload call
+      initDatasources: true   # because: without a reload call, datasources must be on disk before Grafana starts
