@@ -4,7 +4,7 @@ metadata:
   name: garage
 spec:
   serviceName: garage
-  replicas: 1                          # because: replication_factor = 1, single node
+  replicas: 0                          # TEMP: GarageDown break test (task-06 time-to-alert); revert this commit to restore 1
   selector:
     matchLabels: { app: garage }
   template:
