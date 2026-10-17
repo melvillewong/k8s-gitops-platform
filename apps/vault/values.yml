@@ -11,3 +11,8 @@ server:
 
 injector:
   enabled: true # because: agent sidecar renders secrets into pods by ServiceAccount identity (default "-" follows global.enabled; explicit here)
+  webhook:
+    failurePolicy: Fail # because: fail closed; a pod needing a secret is rejected and retried, never started without it (Ignore let Grafana start bare after a reboot)
+    objectSelector: | # because: opt-in label; a down injector blocks only these pods, not every pod in the cluster
+      matchLabels:
+        vault-inject: "true"

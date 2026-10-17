@@ -7,6 +7,8 @@ kubeProxy: { enabled: false }
 alertmanager:
   alertmanagerSpec:
     podMetadata:
+      labels:
+        vault-inject: "true"          # because: matches the Vault injector webhook's objectSelector (opt-in)
       annotations:                    # because: operator builds the pod; this is where pod annotations go
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: alertmanager
@@ -66,6 +68,8 @@ grafana:
   env:
     GF_SECURITY_ADMIN_USER: admin   # because: with the password from Vault the chart stops creating its admin Secret, but still reads the user from it
     GF_SECURITY_ADMIN_PASSWORD: $__file{/vault/secrets/grafana}  # because: distroless image has no /run.sh for __FILE; Grafana expands $__file itself
+  podLabels:
+    vault-inject: "true"            # because: matches the Vault injector webhook's objectSelector (opt-in)
   podAnnotations:
     vault.hashicorp.com/agent-inject: "true"
     vault.hashicorp.com/role: grafana
