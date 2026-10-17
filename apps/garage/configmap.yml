@@ -14,3 +14,6 @@ data:
     [s3_api]
     s3_region = "garage"               # because: cosmetic, but clients must send the same region
     api_bind_addr = "[::]:3900"
+
+    [admin]
+    api_bind_addr = "[::]:3903"        # because: serves /metrics for Prometheus; no metrics_token = open, but only in-cluster (no Ingress)

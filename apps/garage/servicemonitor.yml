@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: garage
+  annotations:
+    # because: on a rebuild the CRD may not exist yet; lets the rest of Garage sync instead of failing the whole app
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels: { app: garage }       # because: matches the Service label
+  endpoints:
+    - port: admin                      # because: by name, survives a port number change
+      path: /metrics
+      interval: 30s

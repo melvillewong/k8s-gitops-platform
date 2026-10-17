@@ -2,9 +2,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: garage
+  labels: { app: garage }              # because: ServiceMonitor selects Services by label; this Service had none
 spec:
   clusterIP: None                      # because: headless, stable DNS for the StatefulSet pod
   selector: { app: garage }
   ports:
     - { name: s3, port: 3900 }         # Loki endpoint: http://garage.storage.svc:3900
     - { name: rpc, port: 3901 }
+    - { name: admin, port: 3903 }      # because: ServiceMonitor refers to the port by this name

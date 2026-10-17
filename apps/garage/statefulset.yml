@@ -10,6 +10,8 @@ spec:
   template:
     metadata:
       labels: { app: garage }
+      annotations:
+        config-rev: "2"                # because: ConfigMap edits do not restart pods; bump this to roll Garage from Git, not kubectl
     spec:
       containers:
         - name: garage
@@ -23,6 +25,7 @@ spec:
           ports:
             - { name: s3, containerPort: 3900 }
             - { name: rpc, containerPort: 3901 }
+            - { name: admin, containerPort: 3903 }
           resources:
             requests: { cpu: 50m, memory: 128Mi }  # because: scheduler bin-packs on requests
             limits: { memory: 512Mi }
