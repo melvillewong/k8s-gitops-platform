@@ -4,6 +4,43 @@ kubeControllerManager: { enabled: false }
 kubeScheduler: { enabled: false }
 kubeProxy: { enabled: false }
 
+alertmanager:
+  alertmanagerSpec:
+    podMetadata:
+      annotations:                    # because: operator builds the pod; this is where pod annotations go
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: alertmanager
+        vault.hashicorp.com/agent-pre-populate-only: "true"   # because: Alertmanager reads the file at send time; the webhook rarely changes
+        vault.hashicorp.com/agent-inject-secret-discord: secret/data/notify/discord
+        vault.hashicorp.com/agent-inject-template-discord: |
+          {{- with secret "secret/data/notify/discord" -}}
+          {{ .Data.data.webhook_url }}
+          {{- end }}
+  config:
+    route:
+      receiver: "null"                # because: default sink; only matched routes notify
+      group_by: [alertname, namespace]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h             # because: a still-firing critical reminds every 4h, not every 12h (chart default)
+      routes:
+        - receiver: "null"
+          matchers: ['alertname = "Watchdog"']   # because: always firing by design; would spam Discord
+        - receiver: discord
+          matchers: ['severity = "critical"']    # because: only page on critical; 93 warning rules would be noise
+    receivers:
+      - name: "null"
+      - name: discord
+        discord_configs:
+          - webhook_url_file: /vault/secrets/discord   # because: URL stays in Vault, never in Git or a k8s Secret
+            send_resolved: true                        # because: "fixed" message closes the loop and times recovery
+            title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+            message: |-
+              {{ range .Alerts }}{{ .Annotations.summary }}
+              {{ .Annotations.description }}
+              Runbook: {{ .Annotations.runbook_url }}
+              {{ end }}
+
 prometheus:
   prometheusSpec:
     retention: 7d             # because: a week covers homelab debugging; default 10d costs disk for nothing

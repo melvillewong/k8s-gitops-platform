@@ -70,6 +70,13 @@ vault_auth write auth/kubernetes/role/grafana \
   policies=grafana \
   ttl=15m
 
+# Role: SA monitoring-kube-prometheus-alertmanager in ns monitoring -> policy alertmanager
+vault_auth write auth/kubernetes/role/alertmanager \
+  bound_service_account_names=monitoring-kube-prometheus-alertmanager \
+  bound_service_account_namespaces=monitoring \
+  policies=alertmanager \
+  ttl=15m
+
 # Role ci: only this repo's main branch -> policy ci; token lives about one job (default would be 768h)
 vault_auth write auth/jwt/role/ci - <<'EOF'
 {
