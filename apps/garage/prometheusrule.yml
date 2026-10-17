@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: garage
+  annotations:
+    # because: same rebuild ordering as the ServiceMonitor (CRD may not exist yet)
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: garage
+      rules:
+        - alert: GarageDown
+          # because: a scaled-down or not-Ready pod drops out of Endpoints, so `up == 0` never appears; absent() catches "no healthy target"
+          expr: absent(up{job="garage"} == 1)
+          for: 2m          # because: Loki buffers chunks (WAL) so not instant, but 2m beats the chart's TargetDown (10m)
+          labels:
+            severity: critical   # because: Garage is Loki's only chunk store; Alertmanager routes on this label
+          annotations:
+            summary: Garage S3 store is down
+            description: No healthy Garage scrape target for 2 minutes; Loki cannot flush log chunks.
+            runbook_url: https://github.com/melvillewong/k8s-devops-platform/blob/main/docs/runbooks/garage-down.md
