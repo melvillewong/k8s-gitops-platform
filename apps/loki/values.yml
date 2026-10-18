@@ -1,0 +1,62 @@
+deploymentMode: SingleBinary   # because: one box, low volume; SimpleScalable = 3 workloads + caches for no gain
+
+loki:
+  auth_enabled: false          # because: single tenant; no X-Scope-OrgID header needed from Alloy or Grafana
+  commonConfig:
+    replication_factor: 1      # because: one Loki pod; the default 3 would wait for replicas that never exist
+  schemaConfig:                # because: chart refuses to render without one; tsdb + v13 is the current recommended schema
+    configs:
+      - from: "2026-10-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: { prefix: index_, period: 24h }
+  storage:
+    type: s3
+    bucketNames: { chunks: loki-chunks, ruler: loki-chunks }  # because: bucket from task-03; the chart requires a ruler bucket, unused (no Loki rules)
+    s3:
+      endpoint: http://garage.storage.svc:3900
+      region: garage           # because: must match Garage's s3_region, or requests are rejected
+      s3ForcePathStyle: true   # because: Garage serves buckets on the path, not as a bucket.host subdomain
+      insecure: true           # because: plain HTTP inside the cluster (TLS is task-08)
+  limits_config:
+    retention_period: 168h     # because: same 7 days as Prometheus, so logs and metrics cover the same window
+  compactor:
+    retention_enabled: true    # because: without it retention_period is ignored and chunks grow forever
+    delete_request_store: s3   # because: Loki 3 requires a store for delete requests once retention is on
+
+singleBinary:
+  replicas: 1
+  podLabels:
+    vault-inject: "true"       # because: matches the Vault injector webhook's objectSelector (opt-in)
+  podAnnotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: loki
+    vault.hashicorp.com/agent-pre-populate-only: "true"   # because: the S3 key only changes on rebuild; restart picks it up
+    vault.hashicorp.com/agent-inject-secret-aws-credentials: secret/data/garage/loki-key
+    vault.hashicorp.com/agent-inject-template-aws-credentials: |
+      {{- with secret "secret/data/garage/loki-key" -}}
+      [default]
+      aws_access_key_id = {{ .Data.data.access_key_id }}
+      aws_secret_access_key = {{ .Data.data.secret_access_key }}
+      {{- end }}
+  extraEnv:
+    - name: AWS_SHARED_CREDENTIALS_FILE   # because: no keys in config = AWS SDK default chain, which reads this file
+      value: /vault/secrets/aws-credentials
+  persistence:
+    storageClass: local-path
+    size: 2Gi                  # because: only the WAL and index cache live here; chunks go to Garage
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }    # because: OOMKill Loki, not starve the box (shared with Prometheus, Vault)
+
+read: { replicas: 0 }          # because: SimpleScalable targets; unused in SingleBinary
+write: { replicas: 0 }
+backend: { replicas: 0 }
+gateway: { enabled: false }    # because: nginx in front is for multi-tenant or split read/write; Grafana and Alloy hit loki:3100 directly
+chunksCache: { enabled: false }   # because: memcached default asks for ~8 GB RAM; pointless at this volume
+resultsCache: { enabled: false }
+lokiCanary: { enabled: false }    # because: synthetic log generator DaemonSet; real pod logs are the test
+test: { enabled: false }          # because: Helm test pod needs the canary
+sidecar:
+  rules: { enabled: false }       # because: no Loki alert rules yet; drops a k8s-sidecar container

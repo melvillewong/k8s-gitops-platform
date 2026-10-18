@@ -52,12 +52,18 @@ jobs:
         run: |
           kubeconform -strict -summary \
             -schema-location default -schema-location "$CRD_SCHEMAS" \
-            apps/forgejo apps/garage apps/vault/demo-pod.yml argocd
+            apps/forgejo apps/garage argocd
       - name: helm template (vault)
         # chart version must match targetRevision in argocd/vault-app.yml
         run: |
           helm template vault vault --repo https://helm.releases.hashicorp.com \
             --version 0.34.1 -n vault -f apps/vault/values.yml \
+            | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
+      - name: helm template (loki)
+        # chart version must match targetRevision in argocd/loki-app.yml
+        run: |
+          helm template loki loki --repo https://grafana.github.io/helm-charts \
+            --version 7.3.0 -n logging -f apps/loki/values.yml \
             | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
       - name: helm template (arc-runners)
         # because: helm prints "Pulled:" lines to stdout for OCI charts, which would corrupt the pipe; pull first
