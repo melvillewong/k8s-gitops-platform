@@ -16,10 +16,22 @@ kubectl -n vault wait pod/"$POD" --for=jsonpath='{.status.phase}'=Running --time
 
 status() { vault_exec vault status -format=json || true; } # exit 2 = sealed, still valid JSON
 
+echo "waiting for Vault to answer (pod Running is not enough: the server may still be starting)"
+for _ in $(seq 60); do
+  jq -e 'has("initialized")' <<< "$(status)" > /dev/null 2>&1 && break
+  sleep 5
+done
+jq -e 'has("initialized")' <<< "$(status)" > /dev/null 2>&1 \
+  || { echo "Vault did not answer within 5 min" >&2; exit 1; }
+
 if [ "$(status | jq -r .initialized)" != "true" ]; then
+  # because: never overwrite real keys; uninitialised + keys present = something is wrong, stop
+  [ -s "$KEYS_FILE" ] && { echo "$KEYS_FILE has keys but Vault reports uninitialised; refusing to overwrite" >&2; exit 1; }
   echo "initialising Vault (1 key share)"
-  vault_exec vault operator init -key-shares=1 -key-threshold=1 -format=json > "$KEYS_FILE"
-  chmod 600 "$KEYS_FILE"
+  # because: `> "$KEYS_FILE"` empties the file before init runs; write to a temp file (mktemp = mode 600), move only on success
+  TMP="$(mktemp "$KEYS_FILE.XXXX")"
+  vault_exec vault operator init -key-shares=1 -key-threshold=1 -format=json > "$TMP"
+  mv "$TMP" "$KEYS_FILE"
 fi
 
 [ -s "$KEYS_FILE" ] || { echo "Vault is initialised but $KEYS_FILE is missing; cannot unseal" >&2; exit 1; }
@@ -56,10 +68,10 @@ done
 
 echo "policies loaded successfully"
 
-# Role: SA demo in ns vault-demo -> policy loki-s3 (Loki gets its own role in task-07)
-vault_auth write auth/kubernetes/role/demo \
-  bound_service_account_names=demo \
-  bound_service_account_namespaces=vault-demo \
+# Role: SA loki in ns logging -> policy loki-s3
+vault_auth write auth/kubernetes/role/loki \
+  bound_service_account_names=loki \
+  bound_service_account_namespaces=logging \
   policies=loki-s3 \
   ttl=15m
 
@@ -97,7 +109,8 @@ GARAGE_KEY="$(kubectl -n storage exec garage-0 -- /garage key info loki-key --sh
 KEY_ID="$(awk -F': *' '/^Key ID/ {print $2}' <<< "$GARAGE_KEY")"
 KEY_SECRET="$(awk -F': *' '/^Secret key/ {print $2}' <<< "$GARAGE_KEY")"
 [ -n "$KEY_ID" ] && [ -n "$KEY_SECRET" ] || { echo "could not parse Garage key info output" >&2; exit 1; }
-vault_auth kv put secret/garage/loki-key access_key_id="$KEY_ID" secret_access_key="$KEY_SECRET" > /dev/null
+# secret via stdin (secret_access_key=-), so it never appears in a process list; printf adds no trailing newline
+printf '%s' "$KEY_SECRET" | vault_auth kv put secret/garage/loki-key access_key_id="$KEY_ID" secret_access_key=- > /dev/null
 echo "secret/garage/loki-key seeded"
 
 # Seed: Discord webhook from the gitignored .env (kept outside Git, like the unseal keys file); shared by CI now, Alertmanager in task-06

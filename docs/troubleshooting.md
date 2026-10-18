@@ -71,6 +71,16 @@ Problems hit while building. Symptom, cause, fix.
 - **Check**: `kubectl get nodes` first; force-deleting pods is pointless while agents are `NotReady`.
 - **Fix**: `docker restart k3d-mycluster-agent-0 k3d-mycluster-agent-1 k3d-mycluster-agent-2` (or `k3d cluster stop mycluster && k3d cluster start mycluster`), wait for `Ready`, then force-delete pods still `Terminating`.
 
+## Vault
+
+### `mise run vault`: `Vault is initialised but vault-unseal-keys.json is missing; cannot unseal`
+
+- **Symptom**: `vault-unseal-keys.json` exists but is 0 bytes; its mtime matches the Vault container's start time after a cluster restart.
+- **Cause**: the script ran while Vault was still starting. `kubectl wait --for=phase=Running` returns at once (the pod stays `Running`, only the container restarted), `vault status` returned nothing, so `.initialized != "true"` took the init branch. `vault operator init ... > "$KEYS_FILE"` emptied the file before init ran, then init failed (already initialised, exit 2).
+- **Fix**: no copy of the unseal key means the data is unreadable; reset: `rm` the empty file, `kubectl -n vault delete pvc data-vault-0 --wait=false` + `delete pod vault-0`, `mise run vault`, restart Grafana and Alertmanager. Every secret is re-seedable (Garage key, `.env` webhook, generated Grafana password).
+- **Prevent**: script now waits until `vault status` returns JSON, refuses to init over a non-empty keys file, and writes init output to a `mktemp` file moved into place only on success. Back up the keys file outside the box (password manager).
+- **Lesson**: never redirect straight into the only copy of a secret; and pod `Running` does not mean the server answers.
+
 ## Monitoring
 
 ### Grafana `GF_SECURITY_ADMIN_PASSWORD__FILE is not supported with the distroless Grafana image`
