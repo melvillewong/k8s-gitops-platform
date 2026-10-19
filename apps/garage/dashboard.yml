@@ -26,9 +26,30 @@ data:
           "id": 2, "type": "timeseries", "title": "Garage up",
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": { "defaults": { "min": 0, "max": 1 }, "overrides": [] },
+          "fieldConfig": {
+            "defaults": {
+              "min": 0, "max": 1,
+              "links": [
+                {
+                  "title": "Logs for ${__field.labels.pod} (Loki)",
+                  "targetBlank": true,
+                  "url": "/explore?schemaVersion=1&panes={\"a\":{\"datasource\":\"loki\",\"queries\":[{\"refId\":\"A\",\"datasource\":{\"type\":\"loki\",\"uid\":\"loki\"},\"expr\":\"{namespace=`${__field.labels.namespace}`, pod=`${__field.labels.pod}`}\"}],\"range\":{\"from\":\"${__from}\",\"to\":\"${__to}\"}}}"
+                }
+              ]
+            },
+            "overrides": []
+          },
           "targets": [
             { "refId": "A", "expr": "up{job=\"garage\"}", "legendFormat": "garage" }
+          ]
+        },
+        {
+          "id": 3, "type": "logs", "title": "Garage logs",
+          "gridPos": { "x": 0, "y": 8, "w": 24, "h": 10 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "options": { "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "{namespace=\"storage\", app=\"garage\"}" }
           ]
         }
       ]

@@ -68,9 +68,16 @@ grafana:
   env:
     GF_SECURITY_ADMIN_USER: admin   # because: with the password from Vault the chart stops creating its admin Secret, but still reads the user from it
     GF_SECURITY_ADMIN_PASSWORD: $__file{/vault/secrets/grafana}  # because: distroless image has no /run.sh for __FILE; Grafana expands $__file itself
+  additionalDataSources:      # because: kps renders these into its datasource ConfigMap; the sidecar writes it before Grafana starts
+    - name: Loki
+      type: loki
+      uid: loki               # because: fixed uid, so dashboard JSON and data links can refer to it (like uid prometheus)
+      url: http://loki.logging.svc:3100   # because: in-cluster Service; no gateway (disabled in apps/loki/values.yml)
+      access: proxy           # because: Grafana's backend calls Loki; the browser never reaches the cluster network
   podLabels:
     vault-inject: "true"            # because: matches the Vault injector webhook's objectSelector (opt-in)
   podAnnotations:
+    config-rev: "1"                 # because: skipReload means datasource changes load only at start; bump this to roll Grafana from Git
     vault.hashicorp.com/agent-inject: "true"
     vault.hashicorp.com/role: grafana
     vault.hashicorp.com/agent-pre-populate-only: "true" # because: Grafana reads the password only at start; no sidecar needed
