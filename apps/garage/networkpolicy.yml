@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: garage
+spec:
+  podSelector:
+    matchLabels: { app: garage }       # because: applies to the Garage pod; once selected, all ingress not listed below is denied
+  policyTypes: [Ingress]               # because: limit who reaches Garage; Garage makes no outbound calls worth limiting
+  ingress:
+    - from:                            # because: Loki is the only S3 client (ADR-0002); one item = namespace AND pod must match
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: logging }
+          podSelector:
+            matchLabels: { app.kubernetes.io/name: loki }
+      ports:
+        - { port: 3900, protocol: TCP }
+    - from:                            # because: /metrics is open (no metrics_token); only Prometheus may read it
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+          podSelector:
+            matchLabels: { app.kubernetes.io/name: prometheus }
+      ports:
+        - { port: 3903, protocol: TCP }
+    # 3901 RPC: no rule. Single node, RPC stays inside the pod; add a peer rule (from app: garage) if nodes are added
