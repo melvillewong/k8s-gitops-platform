@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: garage-init
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: garage-init
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    resourceNames: [garage-0]          # because: least privilege; this pod only, not every pod in storage
+    verbs: [get]                       # because: kubectl exec reads the pod first
+  - apiGroups: [""]
+    resources: [pods/exec]
+    resourceNames: [garage-0]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: garage-init
+subjects:
+  - { kind: ServiceAccount, name: garage-init }
+roleRef:
+  { apiGroup: rbac.authorization.k8s.io, kind: Role, name: garage-init }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: garage-init
+  annotations:
+    argocd.argoproj.io/hook: PostSync                              # because: runs after Garage is synced and Healthy, every sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation      # because: keep the last run's logs; replaced on the next sync
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300           # because: a stuck Garage fails the sync visibly instead of hanging forever
+  template:
+    spec:
+      serviceAccountName: garage-init
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534               # because: kubectl needs no root
+      containers:
+        - name: init
+          image: alpine/kubectl:1.36.2   # because: kubectl + sh; matches the k3s server minor (v1.36)
+          env:
+            - { name: HOME, value: /tmp }  # because: kubectl writes its cache under $HOME; nobody has no home
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          command: [sh, -c]
+          args:
+            - |
+              set -eu
+              g() { kubectl -n storage exec garage-0 -- /garage "$@"; }
+
+              # because: StatefulSet Healthy != Garage answering RPC (no readiness probe)
+              i=0; until g status > /dev/null 2>&1; do
+                i=$((i + 1)); [ "$i" -ge 30 ] && { echo "Garage not answering" >&2; exit 1; }; sleep 5
+              done
+
+              # each step checks first, so every re-run is a no-op
+              if g status | grep -q 'NO ROLE ASSIGNED'; then
+                NODE="$(g node id -q | cut -d@ -f1)"
+                VER="$(g layout show | sed -n 's/^Current cluster layout version: //p')"
+                g layout assign -z dc1 -c 1G "$NODE"
+                g layout apply --version $((VER + 1))
+                echo "layout applied"
+              else
+                echo "layout already set"
+              fi
+              g bucket info loki-chunks > /dev/null 2>&1 || g bucket create loki-chunks
+              # because: key create prints the secret; Job logs must never hold it
+              g key info loki-key > /dev/null 2>&1 || g key create loki-key > /dev/null
+              g bucket allow --read --write --owner loki-chunks --key loki-key > /dev/null
+              echo "garage init done"
