@@ -25,8 +25,13 @@ jq -e 'has("initialized")' <<< "$(status)" > /dev/null 2>&1 \
   || { echo "Vault did not answer within 5 min" >&2; exit 1; }
 
 if [ "$(status | jq -r .initialized)" != "true" ]; then
-  # because: never overwrite real keys; uninitialised + keys present = something is wrong, stop
-  [ -s "$KEYS_FILE" ] && { echo "$KEYS_FILE has keys but Vault reports uninitialised; refusing to overwrite" >&2; exit 1; }
+  # because: status is real JSON here, so Vault is truly empty (fresh PVC) and old keys belong to a destroyed instance;
+  # move them aside, never delete or overwrite (gitignored by *-unseal-keys*)
+  if [ -s "$KEYS_FILE" ]; then
+    BAK="$KEYS_FILE.bak-$(date +%Y%m%d-%H%M%S)"
+    mv "$KEYS_FILE" "$BAK"
+    echo "fresh Vault: old keys moved to $BAK"
+  fi
   echo "initialising Vault (1 key share)"
   # because: `> "$KEYS_FILE"` empties the file before init runs; write to a temp file (mktemp = mode 600), move only on success
   TMP="$(mktemp "$KEYS_FILE.XXXX")"
