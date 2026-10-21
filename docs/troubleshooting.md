@@ -61,8 +61,9 @@ Problems hit while building. Symptom, cause, fix.
 
 ### Pod stuck `Terminating` after suspend/reboot
 
-- **Cause**: kubelet never confirmed container death; StatefulSet can't recreate same-name pod, so apply hangs.
+- **Cause**: kubelet never confirmed container death; StatefulSet can't recreate same-name pod, so apply hangs. Deployments are unaffected: random-suffix pod names let a new pod run beside the stuck one.
 - **Fix**: `kubectl -n argocd delete pod <pod> --grace-period=0 --force`. Brief `Terminating` (under 30s) is normal.
+- **Caveat**: `--force` assumes the old container is truly dead (safe on single-node k3d after a reboot); on a multi-node cluster with a merely unreachable node it risks two writers.
 
 ### Refresh does nothing, apps stuck `Unknown`, pods `Pending`/`Terminating` after suspend
 

@@ -31,6 +31,3 @@ secret.yaml
 # editor / os
 .DS_Store
 *.swp
-
-# custom
-note.md
