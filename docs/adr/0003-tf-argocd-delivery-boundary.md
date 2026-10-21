@@ -22,7 +22,7 @@ left the workload set ambiguous.
   all app workloads, as `Application`s sourced from `apps/` in the GitHub repo.
 - No `helm_release` for workloads. `infra/platform` shrinks to essentially the
   ArgoCD install.
-- Ordering across apps = ArgoCD **sync waves**, not TF `depends_on`.
+- Ordering across apps: not TF `depends_on`. Planned as ArgoCD sync waves; as built, each consumer retries until its dependency is ready (see Consequences).
 - Imperative one-shots inside a workload (e.g. Garage layout/bucket/key init)
   = Kubernetes Jobs with an ArgoCD `PostSync` hook, kept idempotent.
 
@@ -131,8 +131,11 @@ near-impossible.
 
 - `infra/platform` shrinks to ~just ArgoCD; most prior "platform via helm"
   intent moves to `apps/`. Amends ADR-0001's platform scope.
-- Cross-app ordering handled by sync waves; secret-producing apps (Vault +
-  a secrets operator) must sync before consumers (Loki needs the Garage key).
+- Cross-app ordering: no sync waves (ordering whole `Application`s in an
+  app-of-apps needs a custom health check). Consumers retry instead: Loki's
+  Vault agent waits for the key, Loki retries Garage. Vault seeding is a
+  local step (`mise run vault`) after Garage init, so the rebuild order
+  is fixed there.
 - Imperative bootstraps (Garage init) need idempotent PostSync-hook Jobs.
 - Rejected: TF `helm_release` for all workloads (drift, creds-in-TF, no
   reconcile); a second in-cluster Git as the bootstrap source (chicken-egg).
