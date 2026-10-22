@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Create the two Secrets that need values from outside Git: repo PAT (ArgoCD) and ARC GitHub App.
 # Source: gitignored .env + arc-github-app.pem. Idempotent: create-or-update via apply.
+# because: server-side apply tracks ownership in managedFields; client-side apply would copy the Secret data into an annotation
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,7 +23,7 @@ kubectl -n argocd create secret generic repo-k8s-devops-platform \
   --from-file=password=<(printf '%s' "$(get GITHUB_PAT)") \
   --dry-run=client -o yaml \
   | kubectl label --local -f - -o yaml argocd.argoproj.io/secret-type=repository \
-  | kubectl apply -f - > /dev/null
+  | kubectl apply --server-side --field-manager=bootstrap-secrets -f - > /dev/null
 echo "repo-k8s-devops-platform applied"
 
 # because: root failed its first Git fetch before the PAT existed; refresh now instead of waiting for the ~3 min poll
@@ -34,5 +35,5 @@ kubectl -n arc-runners create secret generic arc-github-app \
   --from-literal=github_app_id="$(get ARC_APP_ID)" \
   --from-literal=github_app_installation_id="$(get ARC_INSTALLATION_ID)" \
   --from-file=github_app_private_key="$PEM" \
-  --dry-run=client -o yaml | kubectl apply -f - > /dev/null
+  --dry-run=client -o yaml | kubectl apply --server-side --field-manager=bootstrap-secrets -f - > /dev/null
 echo "arc-github-app applied"
