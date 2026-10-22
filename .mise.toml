@@ -28,9 +28,16 @@ dir = "{{config_root}}/infra/platform"
 run = "terraform init -input=false && terraform apply -auto-approve -input=false"
 
 [tasks.up]
-description = "Full rebuild: cluster -> platform -> wait for ArgoCD ready"
+description = "Full rebuild: cluster -> platform -> wait for ArgoCD ready -> Secrets from .env"
 depends = ["platform"]
-run = "kubectl -n argocd wait deploy --all --for=condition=Available --timeout=10m"
+run = [
+  "kubectl -n argocd wait deploy --all --for=condition=Available --timeout=10m",
+  "{{config_root}}/scripts/bootstrap-secrets.sh",
+]
+
+[tasks.secrets]
+description = "Create repo PAT + ARC App Secrets from .env and arc-github-app.pem (idempotent)"
+run = "{{config_root}}/scripts/bootstrap-secrets.sh"
 
 [tasks.vault]
 description = "Vault: init (first run), unseal, configure Kubernetes auth, seed secrets (re-run after any Vault restart)"
