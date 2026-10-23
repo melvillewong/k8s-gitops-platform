@@ -14,7 +14,17 @@ vault_tok() { kubectl -n vault exec -i "$POD" -- sh -c 'read -r VAULT_TOKEN; exp
 vault_auth()    { printf '%s\n' "$ROOT_TOKEN" | vault_tok "$@"; }            # no data on stdin
 vault_auth_in() { { printf '%s\n' "$ROOT_TOKEN"; cat; } | vault_tok "$@"; }  # caller's stdin follows the token (for `-` values)
 
+# because: on a fresh rebuild ArgoCD creates objects minutes after `up`; kubectl wait fails at once on a missing object
+wait_exists() { # <namespace> <kind/name>
+  for _ in $(seq 120); do
+    kubectl -n "$1" get "$2" > /dev/null 2>&1 && return 0
+    sleep 5
+  done
+  echo "$1/$2 not created within 10 min" >&2; exit 1
+}
+
 echo "waiting for $POD to run (it stays NotReady while sealed)"
+wait_exists vault pod/"$POD"
 kubectl -n vault wait pod/"$POD" --for=jsonpath='{.status.phase}'=Running --timeout=5m
 
 status() { vault_exec vault status -format=json || true; } # exit 2 = sealed, still valid JSON
@@ -119,6 +129,9 @@ EOF
 echo "roles written (loki, grafana, alertmanager, ci)"
 
 # Seed: Garage S3 key for Loki, read from Garage (source of truth until the init Job writes it here)
+echo "waiting for the garage-init Job (it creates loki-key)"
+wait_exists storage job/garage-init
+kubectl -n storage wait job/garage-init --for=condition=complete --timeout=15m > /dev/null
 GARAGE_KEY="$(kubectl -n storage exec garage-0 -- /garage key info loki-key --show-secret)"
 KEY_ID="$(awk -F': *' '/^Key ID/ {print $2}' <<< "$GARAGE_KEY")"
 KEY_SECRET="$(awk -F': *' '/^Secret key/ {print $2}' <<< "$GARAGE_KEY")"
@@ -143,5 +156,14 @@ if ! vault_auth kv get secret/grafana/admin > /dev/null 2>&1; then
 else
   echo "secret/grafana/admin already exists"
 fi
+
+# because: a vault-agent-init that failed while Vault was sealed waits out its retry backoff (up to ~5 min); a new pod logs in at once.
+# Only pods still stuck in that init container are deleted; their controller recreates them.
+kubectl get pods -A -o json \
+  | jq -r '.items[] | select(any(.status.initContainerStatuses[]?; .name == "vault-agent-init" and .state.running)) | "\(.metadata.namespace) \(.metadata.name)"' \
+  | while read -r ns pod; do
+      kubectl -n "$ns" delete pod "$pod" --wait=false > /dev/null
+      echo "restarted $ns/$pod (skip Vault agent backoff)"
+    done
 
 echo "done: Vault unsealed, configured and seeded"

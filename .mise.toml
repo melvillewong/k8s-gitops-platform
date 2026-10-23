@@ -33,6 +33,8 @@ depends = ["platform"]
 run = [
   "kubectl -n argocd wait deploy --all --for=condition=Available --timeout=10m",
   "{{config_root}}/scripts/bootstrap-secrets.sh",
+  # because: a k3s agent can crash at start (flannel vs a recovering API server) while its container stays Up; fail loudly, fix in docs/runbooks/rebuild.md
+  "kubectl wait node --all --for=condition=Ready --timeout=2m",
 ]
 
 [tasks.secrets]
