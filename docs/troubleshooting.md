@@ -82,6 +82,14 @@ Problems hit while building. Symptom, cause, fix.
 
 ## Vault
 
+### Loki `CrashLoopBackOff` after a rebuild: `no EC2 IMDS role found`
+
+- **Symptom**: loki app `Progressing`; `loki-0` crash-loops with `init compactor: ... get credentials: failed to refresh cached credentials, no EC2 IMDS role found`; the pod has no `vault-agent-init` init container.
+- **Cause**: cross-app race on a fresh rebuild. `loki-0` was created (03:18:33) before the Vault agent injector and its webhook existed (03:18:35), so the API server never called the webhook and the pod went through unchanged. With no `/vault/secrets/aws-credentials`, the AWS SDK falls back to EC2 metadata. `failurePolicy: Fail` only applies once the webhook config exists. Earlier runs were lucky (or Loki was added after Vault was up).
+- **Fix**: `mise run vault` (re-run is safe): at the end it restarts pods labelled `vault-inject=true` that have no `vault-agent-init` or are stuck in its backoff; the new pod gets injected. By hand: `kubectl -n logging delete pod loki-0`.
+- **Prevent**: already in the rebuild flow (`mise run vault` runs after `up`). Sync waves were rejected (ADR-0003): Vault stays NotReady until unsealed, so later waves would wait on a manual step.
+- **Lesson**: a mutating webhook only acts on objects created after it is registered; anything earlier needs a restart.
+
 ### `mise run vault`: `Vault is initialised but vault-unseal-keys.json is missing; cannot unseal`
 
 - **Symptom**: `vault-unseal-keys.json` exists but is 0 bytes; its mtime matches the Vault container's start time after a cluster restart.

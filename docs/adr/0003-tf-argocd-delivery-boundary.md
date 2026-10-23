@@ -137,6 +137,7 @@ near-impossible.
   local step (`mise run vault`) after Garage init, so the rebuild order
   is fixed there.
 - Imperative bootstraps (Garage init) need idempotent PostSync-hook Jobs.
+- Webhook race on a fresh rebuild: a Vault consumer pod created before the Vault agent injector's webhook exists is never injected. Fixed by a targeted restart at the end of `mise run vault` (only pods not injected or stuck in agent backoff), not by sync waves: Vault stays NotReady until the manual unseal, so later waves would block on it (found in the 23-Oct-26 DR drill).
 - Rejected: TF `helm_release` for all workloads (drift, creds-in-TF, no
   reconcile); a second in-cluster Git as the bootstrap source (chicken-egg).
 
