@@ -24,6 +24,9 @@ kubectl -n storage exec garage-0 -- /garage status    # node up, layout applied
 | `CrashLoopBackOff` | logs: config parse, `rpc_secret` | fix `garage-config` or Secret `garage-rpc`; bump `config-rev` |
 | `OOMKilled` | describe: last state | raise `limits.memory` in the StatefulSet |
 | Metrics port only | pod Ready, `up == 0` | `[admin] api_bind_addr` present, Service port `admin` |
+| Fresh Prometheus (rebuild or restart), not an outage | Garage pod fine; no `garage` job yet in Prometheus targets | none: the job appears once the operator's config Secret reaches the pod (~3 min in the DR drill). The rule ignores Prometheus's first 10 min, so this should not fire; if it does, check `kubectl -n monitoring logs prometheus-monitoring-kube-prometheus-prometheus-0 -c config-reloader \| grep "Reload triggered"` |
+
+"Resolved" arrives up to ~5 min late: Alertmanager `group_interval: 5m` sends group updates at most every 5 min. Recovery time = the `up{job="garage"}` graph, not the Discord timestamp.
 
 ## Verify recovery
 

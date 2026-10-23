@@ -100,6 +100,14 @@ Problems hit while building. Symptom, cause, fix.
 
 ## Monitoring
 
+### `GarageDown` fires on every rebuild, resolves ~5 min later
+
+- **Symptom**: Discord `[FIRING] GarageDown` ~1-2 min after a rebuild finishes, `[RESOLVED]` ~5 min after that; Garage pod Ready the whole time. Same on all 3 DR drills.
+- **Cause**: Prometheus started (12:33:15) with a config generated before Garage's ServiceMonitor existed; the operator updated its config Secret, but the reloader saw it only when the kubelet refreshed the mounted file (reload 12:36:21, first scrape 12:36:56). `absent(up{job="garage"} == 1)` was true for 3.5 min, past `for: 2m`. Resolved late because Alertmanager `group_interval: 5m` batches group updates.
+- **Fix**: rule ignores Prometheus's first 10 min: `... unless on() (time() - process_start_time_seconds{job="monitoring-kube-prometheus-prometheus", container="prometheus"} < 600)`.
+- **Check**: Prometheus logs `Loading configuration file` times vs `ALERTS{alertname="GarageDown"}` history; query via `kubectl get --raw /api/v1/namespaces/monitoring/services/monitoring-kube-prometheus-prometheus:9090/proxy/api/v1/query?query=...` (the image has no `wget`).
+- **Lesson**: `absent()` alerts fire on any missing target, including "not configured yet"; ArgoCD Healthy does not mean scraping has started.
+
 ### Grafana `GF_SECURITY_ADMIN_PASSWORD__FILE is not supported with the distroless Grafana image`
 
 - **Cause**: chart default image tag is `<version>-distroless`; `__FILE` env needs the image's `/run.sh`, which distroless lacks. Fails at `helm template`.
