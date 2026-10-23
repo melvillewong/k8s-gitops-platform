@@ -36,8 +36,10 @@ kubectl -n arc-runners get secret arc-github-app -o jsonpath='{.data.github_app_
 ```bash
 mise run down                     # destroy platform, then cluster
 rm vault-unseal-keys.json         # old Vault is gone with its PVC; the key unlocks nothing now
-mise run up                       # cluster -> ArgoCD -> Secrets from .env
+mise run up                       # cluster -> ArgoCD -> Secrets from .env -> all nodes Ready
 ```
+
+If `up` fails at the last step (`timed out waiting for the condition on nodes/...`): a k3s agent crashed at start. `docker restart k3d-mycluster-<node>`, then `kubectl get nodes` until all `Ready` (see `docs/troubleshooting.md`).
 
 Automatic, no action:
 
@@ -47,15 +49,14 @@ Automatic, no action:
 
 ### Manual: Vault init, unseal, seed
 
-Run only after the Garage init Job finishes: the script copies `loki-key` from Garage into Vault.
+Run straight after `up`: the script waits until `vault-0` exists, and waits for the `garage-init` Job before copying `loki-key` from Garage into Vault.
 
 ```bash
-kubectl -n storage wait job/garage-init --for=condition=complete --timeout=15m
 mise run vault
 ```
 
 - Fresh Vault: the script inits it and writes a new `./vault-unseal-keys.json`. Back it up off the box.
-- Pods waiting on Vault (`Init:0/1`) recover by themselves within ~5 min (Vault agent retry backoff).
+- At the end it deletes pods still stuck in `vault-agent-init`, so they log in at once instead of waiting out the agent's retry backoff (up to ~5 min).
 - Grafana admin password is new (generated on seed). Token over stdin, not argv:
 
   ```bash

@@ -72,6 +72,14 @@ Problems hit while building. Symptom, cause, fix.
 - **Check**: `kubectl get nodes` first; force-deleting pods is pointless while agents are `NotReady`.
 - **Fix**: `docker restart k3d-mycluster-agent-0 k3d-mycluster-agent-1 k3d-mycluster-agent-2` (or `k3d cluster stop mycluster && k3d cluster start mycluster`), wait for `Ready`, then force-delete pods still `Terminating`.
 
+### App stays `Progressing` after a rebuild, one node `NotReady`
+
+- **Symptom**: monitoring `Progressing` long after every other app is Healthy; one node-exporter pod `Pending` with only a `Scheduled` event; `kubectl get nodes` shows one agent `NotReady` ("Kubelet stopped posting node status") while `docker ps` shows its container `Up`.
+- **Cause**: the k3s agent process exited at start: `docker logs k3d-mycluster-agent-1` shows `failed to start networking: flannel failed to sync address annotations: ... unexpected EOF` (API server still recovering). The k3d entrypoint keeps the container alive, logging `localhost:8080 ... connection refused` forever. A DaemonSet needs a pod on every node, so its app never turns Healthy.
+- **Fix**: `docker restart k3d-mycluster-agent-1`; node `Ready` within ~1 min.
+- **Prevent**: `mise run up` ends with `kubectl wait node --all --for=condition=Ready`, so the crash fails the rebuild loudly instead of hiding behind `Progressing`.
+- **Lesson**: container `Up` does not mean the node runs; check `kubectl get nodes` first when a DaemonSet is stuck.
+
 ## Vault
 
 ### `mise run vault`: `Vault is initialised but vault-unseal-keys.json is missing; cannot unseal`
