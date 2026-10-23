@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Init (first run), unseal (every run), configure Kubernetes auth and seed secrets.
 # Idempotent: safe to re-run after any Vault restart (standalone always restarts sealed).
+# Re-run safety: it restarts only Vault consumers that cannot recover alone (not injected, or stuck in agent backoff); healthy pods are never touched.
 # Homelab tradeoff: 1 unseal key share + root token kept in a gitignored file on this box (prod: Shamir shares split across people, or KMS auto-unseal).
 set -euo pipefail
 
@@ -157,13 +158,18 @@ else
   echo "secret/grafana/admin already exists"
 fi
 
-# because: a vault-agent-init that failed while Vault was sealed waits out its retry backoff (up to ~5 min); a new pod logs in at once.
-# Only pods still stuck in that init container are deleted; their controller recreates them.
-kubectl get pods -A -o json \
-  | jq -r '.items[] | select(any(.status.initContainerStatuses[]?; .name == "vault-agent-init" and .state.running)) | "\(.metadata.namespace) \(.metadata.name)"' \
-  | while read -r ns pod; do
+# Restart Vault consumers (label vault-inject=true, the injector's objectSelector) that cannot recover alone; their controller recreates them:
+# - no vault-agent-init: pod was created before the injector webhook existed (cross-app race on a fresh rebuild), so it never gets the secret
+# - vault-agent-init still running: it failed while Vault was sealed and waits out its retry backoff (up to ~5 min); a new pod logs in at once
+kubectl get pods -A -l vault-inject=true -o json \
+  | jq -r '.items[]
+      | (any(.spec.initContainers[]?; .name == "vault-agent-init") | not) as $missed
+      | (any(.status.initContainerStatuses[]?; .name == "vault-agent-init" and .state.running)) as $waiting
+      | select($missed or $waiting)
+      | "\(.metadata.namespace) \(.metadata.name) \(if $missed then "not injected" else "agent backoff" end)"' \
+  | while read -r ns pod why; do
       kubectl -n "$ns" delete pod "$pod" --wait=false > /dev/null
-      echo "restarted $ns/$pod (skip Vault agent backoff)"
+      echo "restarted $ns/$pod ($why)"
     done
 
 echo "done: Vault unsealed, configured and seeded"
