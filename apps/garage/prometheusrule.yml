@@ -11,7 +11,12 @@ spec:
       rules:
         - alert: GarageDown
           # because: a scaled-down or not-Ready pod drops out of Endpoints, so `up == 0` never appears; absent() catches "no healthy target"
-          expr: absent(up{job="garage"} == 1)
+          # because: on a fresh Prometheus the garage job appears only after the operator's config Secret reaches the pod (~3 min seen in the DR drill);
+          #          without the guard every rebuild fires a false GarageDown. Tradeoff: an outage in Prometheus's first 10 min alerts up to 10 min late.
+          #          job name comes from the Helm release name (monitoring); renaming the release silently drops the guard
+          expr: |
+            absent(up{job="garage"} == 1)
+              unless on() (time() - process_start_time_seconds{job="monitoring-kube-prometheus-prometheus", container="prometheus"} < 600)
           for: 2m          # because: Loki buffers chunks (WAL) so not instant, but 2m beats the chart's TargetDown (10m)
           labels:
             severity: critical   # because: Garage is Loki's only chunk store; Alertmanager routes on this label
