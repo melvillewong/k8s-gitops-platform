@@ -56,7 +56,12 @@ mise run vault
 
 - Fresh Vault: the script inits it and writes a new `./vault-unseal-keys.json`. Back it up off the box.
 - Pods waiting on Vault (`Init:0/1`) recover by themselves within ~5 min (Vault agent retry backoff).
-- Grafana admin password is new (generated on seed): `kubectl -n vault exec vault-0 -- env VAULT_TOKEN="$(jq -r .root_token vault-unseal-keys.json)" vault kv get -field=password secret/grafana/admin`.
+- Grafana admin password is new (generated on seed). Token over stdin, not argv:
+
+  ```bash
+  jq -r .root_token vault-unseal-keys.json | kubectl -n vault exec -i vault-0 -- \
+    sh -c 'read -r VAULT_TOKEN; export VAULT_TOKEN; exec vault kv get -field=password secret/grafana/admin'
+  ```
 
 ## Done when
 
