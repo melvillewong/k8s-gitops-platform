@@ -42,7 +42,7 @@ Problems hit while building. Symptom, cause, fix.
 ### `helm_release.argocd: Still creating...` for minutes
 
 - **Cause**: Helm waits (300s) for pods Ready; pods stuck `ImagePullBackOff`, VPN on (VPN off fixed it).
-- **Check**: `kubectl get pods -A | grep -vE 'Running|Completed'`; `ip route get 1.1.1.1` shows `tun0` = VPN on.
+- **Check**: `kubectl get pods -A | grep -vE 'Running|Completed'`; `ip route get 1.1.1.1` shows your VPN interface (e.g. `tun0`) = VPN on.
 - **Fix**: VPN off, clean up release (below), re-run.
 
 ### `helm_release.argocd` slow on every rebuild (VPN off)

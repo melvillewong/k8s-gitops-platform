@@ -61,11 +61,12 @@ flowchart TB
 | Grafana | one UI for metrics and logs, dashboards and datasources as code |
 | Loki + Alloy | logs indexed by labels only, cheap to run, same labels as metrics |
 | Garage | S3-compatible store for Loki on the same box (MinIO community edition is archived) |
+| Forgejo | sample stateful app (Deployment, 5Gi PVC, Ingress at `forgejo.localhost:8080`) proving GitOps delivery of a workload with data |
 | mise | pins tool versions and wraps the lifecycle in `up` / `vault` / `down` |
 
 ## Quick start
 
-Prerequisites: Docker, [mise](https://mise.jdx.dev), and gitignored `.env` (`GITHUB_PAT`, `ARC_APP_ID`, `ARC_INSTALLATION_ID`, `DISCORD_WEBHOOK_URL`) plus `arc-github-app.pem` at the repo root.
+Prerequisites: Docker, [mise](https://mise.jdx.dev), and gitignored `.env` (copy `.env.example`: `GITHUB_PAT`, `ARC_APP_ID`, `ARC_INSTALLATION_ID`, `DISCORD_WEBHOOK_URL`) plus `arc-github-app.pem` at the repo root.
 
 ```bash
 mise run up      # k3d cluster -> ArgoCD -> bootstrap Secrets -> all nodes Ready

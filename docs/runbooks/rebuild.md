@@ -28,7 +28,7 @@ kubectl -n arc-runners get secret arc-github-app -o jsonpath='{.data.github_app_
 | Discord webhook URL | password manager | `.env` `DISCORD_WEBHOOK_URL=` |
 
 - `.env` and `*.pem` are gitignored; keep both `chmod 600`.
-- VPN off: `ip route get 1.1.1.1` must not show `tun0`.
+- VPN off: `ip route get 1.1.1.1` must not show your VPN interface (e.g. `tun0`).
 - Run every command from the repo root (mise sets `KUBECONFIG`).
 
 ## Rebuild
