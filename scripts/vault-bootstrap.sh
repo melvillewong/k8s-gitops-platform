@@ -118,9 +118,9 @@ vault_auth_in write auth/jwt/role/ci - > /dev/null <<'EOF'
 {
   "role_type": "jwt",
   "user_claim": "repository",
-  "bound_audiences": ["vault-k8s-devops-platform"],
+  "bound_audiences": ["vault-k8s-gitops-platform"],
   "bound_claims": {
-    "repository": "melvillewong/k8s-devops-platform",
+    "repository": "melvillewong/k8s-gitops-platform",
     "ref": "refs/heads/main"
   },
   "token_policies": ["ci"],

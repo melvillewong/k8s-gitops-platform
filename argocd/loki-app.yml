@@ -12,7 +12,7 @@ spec:
       targetRevision: 7.3.0
       helm:
         valueFiles: [$values/apps/loki/values.yml]
-    - repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+    - repoURL: https://github.com/melvillewong/k8s-gitops-platform.git
       targetRevision: HEAD
       ref: values
   destination:

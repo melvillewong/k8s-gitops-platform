@@ -18,7 +18,7 @@ jobs:
           method: jwt
           role: ci # must match auth/jwt/role/ci in scripts/vault-bootstrap.sh
           # because: names the recipient (Vault), not GitHub's default aud, so only a token requested for Vault is accepted
-          jwtGithubAudience: vault-k8s-devops-platform # must match the role's bound_audiences
+          jwtGithubAudience: vault-k8s-gitops-platform # must match the role's bound_audiences
           # <KV v2 API path> <field> | <env var>; the value is masked in logs
           secrets: |
             secret/data/notify/discord webhook_url | DISCORD_WEBHOOK_URL

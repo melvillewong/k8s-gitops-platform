@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default   # built-in wide-open project; single tenant so no repo/namespace restrictions needed yet
   source:
-    repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+    repoURL: https://github.com/melvillewong/k8s-gitops-platform.git
     path: apps/forgejo
     targetRevision: HEAD
   destination:

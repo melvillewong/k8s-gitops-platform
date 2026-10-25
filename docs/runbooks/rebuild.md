@@ -8,7 +8,7 @@ The cluster may hold the only live copy of some values. Pull them into `.env` (a
 
 ```bash
 # Repo PAT (GitHub shows it only once)
-kubectl -n argocd get secret repo-k8s-devops-platform -o jsonpath='{.data.password}' | base64 -d; echo
+kubectl -n argocd get secret repo-k8s-gitops-platform -o jsonpath='{.data.password}' | base64 -d; echo
 
 # ARC GitHub App IDs
 kubectl -n arc-runners get secret arc-github-app -o jsonpath='{.data.github_app_id}' | base64 -d; echo

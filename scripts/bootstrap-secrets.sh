@@ -16,15 +16,15 @@ done
 [ -f "$PEM" ] || { echo "missing $PEM" >&2; exit 1; }
 
 # because: --from-file with printf keeps the PAT out of process args (ps) and adds no trailing newline
-kubectl -n argocd create secret generic repo-k8s-devops-platform \
+kubectl -n argocd create secret generic repo-k8s-gitops-platform \
   --from-literal=type=git \
-  --from-literal=url=https://github.com/melvillewong/k8s-devops-platform.git \
+  --from-literal=url=https://github.com/melvillewong/k8s-gitops-platform.git \
   --from-literal=username=melvillewong \
   --from-file=password=<(printf '%s' "$(get GITHUB_PAT)") \
   --dry-run=client -o yaml \
   | kubectl label --local -f - -o yaml argocd.argoproj.io/secret-type=repository \
   | kubectl apply --server-side --field-manager=bootstrap-secrets -f - > /dev/null
-echo "repo-k8s-devops-platform applied"
+echo "repo-k8s-gitops-platform applied"
 
 # because: root failed its first Git fetch before the PAT existed; refresh now instead of waiting for the ~3 min poll
 kubectl -n argocd annotate application root argocd.argoproj.io/refresh=hard --overwrite > /dev/null 2>&1 \

@@ -12,7 +12,7 @@ spec:
       targetRevision: 1.13.1
       helm:
         valueFiles: [$values/apps/alloy/values.yml]
-    - repoURL: https://github.com/melvillewong/k8s-devops-platform.git
+    - repoURL: https://github.com/melvillewong/k8s-gitops-platform.git
       targetRevision: HEAD
       ref: values
   destination:
