@@ -46,4 +46,4 @@ Three workloads need credentials at runtime: Loki (Garage S3 key), Grafana (admi
 
 ## Related
 
-ADR-0003 (Vault is a GitOps workload; consumers retry instead of sync waves). ADR-0005 (CI reads Vault through JWT auth). `docs/tasks/task-04-vault-k8s-auth.md`, `docs/runbooks/rebuild.md`.
+ADR-0003 (Vault is a GitOps workload; consumers retry instead of sync waves). ADR-0005 (CI reads Vault through JWT auth). `docs/runbooks/rebuild.md`.

@@ -36,4 +36,4 @@ CI has two jobs: validate every PR before merge (in GitOps, merge = deploy, so t
 
 ## Related
 
-ADR-0004 (Vault). `docs/tasks/task-05-gha-vault-jwt.md`, `.github/workflows/pr-validate.yml`, `.github/workflows/notify-merge.yml`, `apps/arc/values.yml`.
+ADR-0004 (Vault). `.github/workflows/pr-validate.yml`, `.github/workflows/notify-merge.yml`, `apps/arc/values.yml`.

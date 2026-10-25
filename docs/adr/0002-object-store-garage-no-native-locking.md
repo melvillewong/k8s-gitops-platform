@@ -113,4 +113,3 @@ Use **Garage** (Deuxfleurs, Rust) as the single self-hosted object store, and
 ## Related
 
 ADR-0001 (state boundary: only `infra/platform` state lives in the store).
-`docs/tasks/task-03-garage-object-store.md`; `docs/project.md` Decisions.

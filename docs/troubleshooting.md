@@ -19,7 +19,7 @@ Problems hit while building. Symptom, cause, fix.
 ### `ComparisonError: authentication required: Repository not found`
 
 - **Cause**: private repo, no creds.
-- **Fix**: create the labelled repo Secret with kubectl (`note.md` Rebuild flow step 3); no ArgoCD login needed.
+- **Fix**: create the labelled repo Secret with kubectl (`mise run secrets`, see `docs/runbooks/rebuild.md`); no ArgoCD login needed.
 
 ### App sync status `Unknown`
 

@@ -19,7 +19,7 @@ spec:
           env:
             - name: GARAGE_CONFIG_FILE # because: explicit path; also applies to `kubectl exec ... /garage` CLI calls
               value: /etc/garage/garage.toml
-            - name: GARAGE_RPC_SECRET  # because: secret stays out of Git (manual Secret until Vault, task-04)
+            - name: GARAGE_RPC_SECRET  # because: secret stays out of Git (generated in-cluster by the PreSync Job in rpc-secret-job.yml)
               valueFrom:
                 secretKeyRef: { name: garage-rpc, key: rpc-secret }
           ports:

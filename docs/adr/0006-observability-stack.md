@@ -43,4 +43,4 @@ The platform needs metrics, logs and alerts that reach a person, all delivered b
 
 ## Related
 
-ADR-0002 (Garage), ADR-0003 (delivery), ADR-0004 (Vault secrets for Loki, Grafana, Alertmanager). `docs/tasks/task-06-prometheus-grafana.md`, `docs/tasks/task-07-loki-logs.md`, `docs/runbooks/garage-down.md`.
+ADR-0002 (Garage), ADR-0003 (delivery), ADR-0004 (Vault secrets for Loki, Grafana, Alertmanager). `docs/runbooks/garage-down.md`.

@@ -144,5 +144,4 @@ near-impossible.
 ## Related
 
 ADR-0001 (repo layout / state boundary; this ADR refines its platform scope).
-ADR-0002 (Garage object store). `docs/tasks/task-02-argocd-gitops.md`,
-`docs/tasks/task-03-garage-object-store.md`, `docs/tasks/task-07-loki-logs.md`.
+ADR-0002 (Garage object store).
