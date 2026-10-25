@@ -78,8 +78,8 @@ flowchart TB
 - **Gray-zone test:** *does ArgoCD need it to function?* Yes (the cluster,
   ArgoCD itself, the Git cred) → seed/TF. No (Garage, Loki, Vault, …) → GitOps.
 - **Sequencing consequence:** Garage is a workload, so it deploys as an Argo
-  app and therefore cannot precede ArgoCD. Task order re-sequenced: ArgoCD =
-  Task 02, Garage = Task 03.
+  app and therefore cannot precede ArgoCD. Build order: ArgoCD first, then
+  Garage.
 
 ## Bootstrap: GitHub, not in-cluster Forgejo
 

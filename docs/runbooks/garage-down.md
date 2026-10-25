@@ -32,4 +32,4 @@ kubectl -n storage exec garage-0 -- /garage status    # node up, layout applied
 
 - Prometheus: `up{job="garage"}` = `1`, `cluster_healthy` = `1`
 - Discord: `[RESOLVED] GarageDown` message
-- Loki (task-07): ingester flush errors stop
+- Loki: ingester flush errors stop

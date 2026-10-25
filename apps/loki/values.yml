@@ -13,12 +13,12 @@ loki:
         index: { prefix: index_, period: 24h }
   storage:
     type: s3
-    bucketNames: { chunks: loki-chunks, ruler: loki-chunks }  # because: bucket from task-03; the chart requires a ruler bucket, unused (no Loki rules)
+    bucketNames: { chunks: loki-chunks, ruler: loki-chunks }  # because: bucket created by the garage-init Job; the chart requires a ruler bucket, unused (no Loki rules)
     s3:
       endpoint: http://garage.storage.svc:3900
       region: garage           # because: must match Garage's s3_region, or requests are rejected
       s3ForcePathStyle: true   # because: Garage serves buckets on the path, not as a bucket.host subdomain
-      insecure: true           # because: plain HTTP inside the cluster (TLS is task-08)
+      insecure: true           # because: plain HTTP inside the cluster (no TLS in this homelab)
   limits_config:
     retention_period: 168h     # because: same 7 days as Prometheus, so logs and metrics cover the same window
   compactor:

@@ -16,7 +16,7 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
   `learn-terraform` CV entry, so building them again here added complexity
   (two-phase bootstrap, no-lock caveat) for zero new signal.
 - **Garage now justifies itself as a runtime data-plane store**, not a state
-  store. Sole confirmed consumer: **Loki chunks (Task 07)**, a write-once /
+  store. Sole confirmed consumer: **Loki chunks**, a write-once /
   immutable-blob workload Garage serves cleanly. Forgejo blobs stay on local
   PV (S3 adds little there).
 - **Net effect on the locking gap:** moot for state (no state in Garage). The
@@ -37,7 +37,7 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
   endpoints and bucket versioning as "Missing". Sept 2026 third-party reports:
   `PutObject` ignores `If-None-Match` / `If-Match` (CRDT design, no
   compare-and-swap). Garage's own release notes were not reachable to confirm.
-- **Later consumers (all write-once):** backups (task-09, Forgejo PV and Vault
+- **Later consumers (all write-once):** backups (Forgejo PV and Vault
   snapshots via restic/Velero), Forgejo LFS/attachments, traces if Tempo is
   added. Still never Terraform state.
 
@@ -46,7 +46,7 @@ The original decision text below is retained for history.
 ## Context
 
 The platform needs a self-hosted, S3-compatible object store for the Terraform
-`s3` state backend (Task 02) and later for Loki chunks (Task 07) and backups.
+`s3` state backend and later for Loki chunks and backups.
 
 MinIO was the original pick. It is now unusable as an open dependency:
 
@@ -85,7 +85,7 @@ Use **Garage** (Deuxfleurs, Rust) as the single self-hosted object store, and
   locking buys is protection against concurrent writers, which do not exist on a
   one-person homelab. Documenting the tradeoff is a stronger signal than
   toggling a flag that cannot work.
-- **The limitation is confined to Task 02.** Every other object-store use in the
+- **The limitation is confined to Terraform state.** Every other object-store use in the
   project (Loki chunks, backups, optional Thanos blocks, Forgejo blobs) is a
   write-once / immutable-blob pattern with no mutual-exclusion need, which Garage
   serves cleanly. Garage is a common, documented Loki and backup target.

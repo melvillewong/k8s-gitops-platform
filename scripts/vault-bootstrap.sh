@@ -141,7 +141,7 @@ KEY_SECRET="$(awk -F': *' '/^Secret key/ {print $2}' <<< "$GARAGE_KEY")"
 printf '%s' "$KEY_SECRET" | vault_auth_in kv put secret/garage/loki-key access_key_id="$KEY_ID" secret_access_key=- > /dev/null
 echo "secret/garage/loki-key seeded"
 
-# Seed: Discord webhook from the gitignored .env (kept outside Git, like the unseal keys file); shared by CI now, Alertmanager in task-06
+# Seed: Discord webhook from the gitignored .env (kept outside Git, like the unseal keys file); shared by CI and Alertmanager
 if [ -f "$ROOT/.env" ] && grep -q '^DISCORD_WEBHOOK_URL=' "$ROOT/.env"; then
   WEBHOOK_URL="$(grep '^DISCORD_WEBHOOK_URL=' "$ROOT/.env" | cut -d= -f2-)"
   printf '%s' "$WEBHOOK_URL" | vault_auth_in kv put secret/notify/discord webhook_url=- > /dev/null

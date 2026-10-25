@@ -1,7 +1,7 @@
 # ADR-0006: Observability with kube-prometheus-stack, Loki on Garage and Alloy
 
 - Status: accepted
-- Date: 23-Oct-26 (decided 18-Sep-26; built in task-06 and task-07)
+- Date: 23-Oct-26 (decided 18-Sep-26)
 
 ## Context
 
