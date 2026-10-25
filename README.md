@@ -66,7 +66,7 @@ flowchart TB
 
 ## Quick start
 
-Prerequisites: Docker, [mise](https://mise.jdx.dev), and gitignored `.env` (copy `.env.example`: `GITHUB_PAT`, `ARC_APP_ID`, `ARC_INSTALLATION_ID`, `DISCORD_WEBHOOK_URL`) plus `arc-github-app.pem` at the repo root.
+Prerequisites: Docker, [mise](https://mise.jdx.dev), and gitignored `.env` (copy `.env.example`: `ARC_APP_ID`, `ARC_INSTALLATION_ID`, `DISCORD_WEBHOOK_URL`; `GITHUB_PAT` only for a private fork) plus `arc-github-app.pem` at the repo root.
 
 ```bash
 mise run up      # k3d cluster -> ArgoCD -> bootstrap Secrets -> all nodes Ready
@@ -94,7 +94,7 @@ Each line: gap, then the production fix. Accepted here because this is a single-
 
 - **Unseal key and root token in one file on the box** → Shamir shares held by different people, or KMS auto-unseal; root token revoked after setup.
 - **Vault without TLS, audit log, HA or backups** → TLS, an audit device, Raft HA and scheduled snapshots off the box.
-- **Repo PAT and ARC App key in plaintext `.env`** (needed before Vault exists) → an external secret store with a cloud KMS.
+- **ARC App key (and the repo PAT, for a private repo) in plaintext `.env`** (needed before Vault exists) → an external secret store with a cloud KMS.
 - **All apps in ArgoCD's `default` project, no branch protection** → one AppProject per app (allowed namespaces and kinds), required reviews and status checks on `main`.
 - **NetworkPolicy only on Garage** → default-deny per namespace with explicit allows, including CI runner egress.
 - **Garage with one replica on the same disk** → 3 nodes across failure domains plus an offsite copy.

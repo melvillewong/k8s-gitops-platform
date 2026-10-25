@@ -22,7 +22,7 @@ kubectl -n arc-runners get secret arc-github-app -o jsonpath='{.data.github_app_
 
 | Item | Source | On the box |
 |---|---|---|
-| Repo PAT (fine-grained, this repo only, Contents read-only) | GitHub > Settings > Developer settings > Fine-grained tokens (check expiry) | `.env` `GITHUB_PAT=` |
+| Repo PAT, private repo only (fine-grained, this repo only, Contents read-only) | GitHub > Settings > Developer settings > Fine-grained tokens (check expiry) | `.env` `GITHUB_PAT=` |
 | ARC App ID, Installation ID | the App's settings page / install URL | `.env` `ARC_APP_ID=`, `ARC_INSTALLATION_ID=` |
 | ARC App private key | password manager | `./arc-github-app.pem` |
 | Discord webhook URL | password manager | `.env` `DISCORD_WEBHOOK_URL=` |
