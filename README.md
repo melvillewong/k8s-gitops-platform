@@ -95,7 +95,7 @@ Each line: gap, then the production fix. Accepted here because this is a single-
 - **Unseal key and root token in one file on the box** → Shamir shares held by different people, or KMS auto-unseal; root token revoked after setup.
 - **Vault without TLS, audit log, HA or backups** → TLS, an audit device, Raft HA and scheduled snapshots off the box.
 - **ARC App key (and the repo PAT, for a private repo) in plaintext `.env`** (needed before Vault exists) → an external secret store with a cloud KMS.
-- **All apps in ArgoCD's `default` project, no branch protection** → one AppProject per app (allowed namespaces and kinds), required reviews and status checks on `main`.
+- **All apps in ArgoCD's `default` project; `main` requires PR checks and signed commits but no reviewer** → one AppProject per app (allowed namespaces and kinds), a required review from a second person.
 - **NetworkPolicy only on Garage** → default-deny per namespace with explicit allows, including CI runner egress.
 - **Garage with one replica on the same disk** → 3 nodes across failure domains plus an offsite copy.
 - **Terraform state local, no locking** → a remote backend with locking.
