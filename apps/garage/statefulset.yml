@@ -13,9 +13,15 @@ spec:
       annotations:
         config-rev: "2"                # because: ConfigMap edits do not restart pods; bump this to roll Garage from Git, not kubectl
     spec:
+      # because: Garage is one static binary and needs no root; local-path volumes are created world-writable
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }
       containers:
         - name: garage
           image: dxflrs/garage:v2.3.0  # because: pinned for reproducible rebuilds
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: true # because: Garage writes only to its meta and data volumes
           env:
             - name: GARAGE_CONFIG_FILE # because: explicit path; also applies to `kubectl exec ... /garage` CLI calls
               value: /etc/garage/garage.toml

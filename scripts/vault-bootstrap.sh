@@ -114,17 +114,20 @@ vault_auth write auth/kubernetes/role/alertmanager \
   ttl=15m > /dev/null
 
 # Role ci: only this repo's main branch -> policy ci; token lives about one job (default would be 768h)
+# because: repository_id never changes, so a new repo reusing this name after a rename or delete cannot match
+# because: token_max_ttl stops renewals stretching the token to the 768h system max
 vault_auth_in write auth/jwt/role/ci - > /dev/null <<'EOF'
 {
   "role_type": "jwt",
   "user_claim": "repository",
   "bound_audiences": ["vault-k8s-gitops-platform"],
   "bound_claims": {
-    "repository": "melvillewong/k8s-gitops-platform",
+    "repository_id": "1433945542",
     "ref": "refs/heads/main"
   },
   "token_policies": ["ci"],
-  "token_ttl": "5m"
+  "token_ttl": "5m",
+  "token_max_ttl": "10m"
 }
 EOF
 echo "roles written (loki, grafana, alertmanager, ci)"

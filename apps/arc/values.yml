@@ -26,7 +26,8 @@ template:
     containers:
       # name, image and command repeat the chart default: overriding `template` replaces the whole container
       - name: runner
-        image: ghcr.io/actions/actions-runner:latest
+        # because: a fixed tag gives the same runner on every rebuild; bump within 30 days of a new runner release, or GitHub stops sending jobs
+        image: ghcr.io/actions/actions-runner:2.338.2
         command: ["/home/runner/run.sh"]
         securityContext:
           # because: sudo is a setuid binary; this makes the kernel refuse the privilege gain
