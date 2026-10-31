@@ -43,13 +43,18 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534               # because: kubectl needs no root
+      volumes:
+        - { name: tmp, emptyDir: {} }  # because: the root filesystem is read-only; kubectl still needs a writable HOME
       containers:
         - name: init
           image: alpine/kubectl:1.36.2   # because: kubectl + sh; matches the k3s server minor (v1.36)
           env:
             - { name: HOME, value: /tmp }  # because: kubectl writes its cache under $HOME; nobody has no home
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           resources:
             requests: { cpu: 10m, memory: 32Mi }
             limits: { memory: 128Mi }

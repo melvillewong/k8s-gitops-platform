@@ -8,8 +8,25 @@ server:
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 256Mi } # because: box RAM is shared with the observability stack
+  statefulSet:
+    securityContext:
+      # setting container replaces the chart default, so allowPrivilegeEscalation is repeated
+      container:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true # because: an attacker in the pod cannot drop tools onto the image filesystem
+  # because: the chart's start command writes its config to /tmp; /home/vault is already an emptyDir from the chart
+  volumes:
+    - { name: tmp, emptyDir: {} }
+  volumeMounts:
+    - { name: tmp, mountPath: /tmp }
 
 injector:
+  securityContext:
+    # setting container replaces the chart default, so its two settings are repeated
+    container:
+      allowPrivilegeEscalation: false
+      capabilities: { drop: [ALL] }
+      readOnlyRootFilesystem: true # because: the injector keeps its webhook certificate in memory, no file writes
   enabled: true # because: agent sidecar renders secrets into pods by ServiceAccount identity (default "-" follows global.enabled; explicit here)
   webhook:
     failurePolicy: Fail # because: fail closed; a pod needing a secret is rejected and retried, never started without it (Ignore let Grafana start bare after a reboot)
