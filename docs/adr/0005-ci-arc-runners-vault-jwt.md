@@ -14,9 +14,9 @@ CI has two jobs: validate every PR before merge (in GitOps, merge = deploy, so t
 - ARC: two ArgoCD apps, controller (`arc-controller`) and a repo-level runner scale set (`arc-runners`, `runs-on: arc-runner-set`). `minRunners: 0`, `maxRunners: 2`: one pod per job, deleted after. Runner pods run non-root, no privilege escalation, all capabilities dropped. Runners connect outbound to GitHub; nothing inbound.
 - Vault JWT auth: Vault verifies the job's OIDC token against GitHub's published keys (`oidc_discovery_url`), so no shared secret exists. Role `ci` binds:
   - `bound_audiences: vault-k8s-gitops-platform` (a token requested for another service is refused),
-  - `bound_claims`: this repository and `refs/heads/main` only,
+  - `bound_claims`: this repository's numeric `repository_id` (survives a rename; a new repo reusing the name cannot match) and `refs/heads/main` only,
   - policy `ci`: `read` on `secret/data/notify/discord` only,
-  - `token_ttl: 5m` (about one job; default would be 768h).
+  - `token_ttl: 5m` (about one job; default would be 768h), `token_max_ttl: 10m` (renewals cannot stretch it).
 - The job reaches Vault at its in-cluster Service (`http://vault.vault.svc:8200`).
 
 ## Rejected
@@ -29,8 +29,8 @@ CI has two jobs: validate every PR before merge (in GitOps, merge = deploy, so t
 ## Consequences
 
 - **CI runs inside the cluster**: a malicious job executes next to the platform. Mitigated: repo-level runners on a private repo (only this repo's jobs land here), non-root pods, and the PR workflow has `contents: read` and no `id-token`, so PR code cannot log in to Vault (only `main` can, via `notify-merge`). Not covered: no NetworkPolicy on runner egress; a separate cluster or namespace isolation for runners would be the prod answer.
-- **Runner image `actions-runner:latest`**: unpinned, so a rebuild may pull a different runner. Prod: pin a version or digest.
-- **Negative tests deferred**: wrong repo, branch or audience must be refused by Vault; designed in, not yet proven by a failing run.
+- **Runner image pinned** (`actions-runner:2.338.2`): every rebuild gets the same runner. Must be bumped within 30 days of a new runner release, or GitHub stops sending jobs.
+- **No negative login tests**: skipped (01-Nov-26). The role was reviewed instead and hardened: `repository_id` binding and `token_max_ttl`.
 - **ARC GitHub App key outside Vault**: ARC needs it before Vault exists; kept in gitignored `.env` + `.pem`, loaded by `scripts/bootstrap-secrets.sh` (ADR-0004).
 - **Runner pods share box RAM** with the platform; `maxRunners: 2` caps it.
 

@@ -40,7 +40,7 @@ flowchart TB
   GRAF --> LOKI
 ```
 
-1. **PR checks**: every PR runs `terraform fmt/validate`, `kubeconform` and `helm template` on ephemeral in-cluster runners. In GitOps, merge = deploy, so the PR is the gate.
+1. **PR checks**: every PR runs `terraform fmt/validate`, `kubeconform` and `helm template` on ephemeral in-cluster runners, then Trivy: HIGH/CRITICAL misconfigurations block the merge, upstream image CVEs are reported ([ADR-0007](docs/adr/0007-trivy-pr-scanning.md)). In GitOps, merge = deploy, so the PR is the gate.
 2. **GitOps**: Terraform installs only the cluster and ArgoCD (the seed). ArgoCD's root app syncs every child `Application` in `argocd/`, with self-heal on. Nothing is `kubectl apply`'d by hand ([ADR-0003](docs/adr/0003-tf-argocd-delivery-boundary.md)).
 3. **Secrets**: pods log in to Vault with their ServiceAccount; an agent writes the secret to a file in the pod. No k8s Secret, no value in Git. One role and one read-only policy per consumer ([ADR-0004](docs/adr/0004-vault-secrets.md)).
 4. **Keyless CI**: the job's GitHub OIDC token is accepted only for this repo, `main`, and Vault's audience; the Vault token lives 5 minutes ([ADR-0005](docs/adr/0005-ci-arc-runners-vault-jwt.md)).
@@ -57,6 +57,7 @@ flowchart TB
 | ArgoCD | continuous reconcile from Git: audit trail, revert by commit, drift self-heal |
 | HashiCorp Vault | one place for secrets, read by workload identity, never stored in Git or CI |
 | GitHub Actions + ARC | CI needs to reach Vault, which is never exposed; runners live in the cluster |
+| Trivy | merge = deploy, so an unsafe manifest must be caught at the PR, not in the cluster |
 | Prometheus + Alertmanager | metrics and alert rules as code, routed to a person |
 | Grafana | one UI for metrics and logs, dashboards and datasources as code |
 | Loki + Alloy | logs indexed by labels only, cheap to run, same labels as metrics |

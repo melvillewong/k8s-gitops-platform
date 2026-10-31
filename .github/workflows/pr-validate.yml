@@ -55,15 +55,20 @@ jobs:
             apps/forgejo apps/garage argocd
       - name: helm template (vault)
         # chart version must match targetRevision in argocd/vault-app.yml
+        # because: --skip-tests drops the Helm test pod, which ArgoCD never deploys
+        # because: tee keeps a copy of each render for the trivy job
         run: |
+          mkdir -p "$RUNNER_TEMP/render"
           helm template vault vault --repo https://helm.releases.hashicorp.com \
-            --version 0.34.1 -n vault -f apps/vault/values.yml \
+            --version 0.34.1 -n vault -f apps/vault/values.yml --skip-tests \
+            | tee "$RUNNER_TEMP/render/vault.yml" \
             | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
       - name: helm template (loki)
         # chart version must match targetRevision in argocd/loki-app.yml
         run: |
           helm template loki loki --repo https://grafana.github.io/helm-charts \
             --version 7.3.0 -n logging -f apps/loki/values.yml \
+            | tee "$RUNNER_TEMP/render/loki.yml" \
             | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
       - name: helm template (arc-runners)
         # because: helm prints "Pulled:" lines to stdout for OCI charts, which would corrupt the pipe; pull first
@@ -73,4 +78,70 @@ jobs:
             --version 0.15.0 -d "$RUNNER_TEMP"
           helm template arc-runners "$RUNNER_TEMP/gha-runner-scale-set-0.15.0.tgz" \
             -n arc-runners -f apps/arc/values.yml \
+            | tee "$RUNNER_TEMP/render/arc-runners.yml" \
             | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rendered-charts
+          path: ${{ runner.temp }}/render
+          retention-days: 1 # because: only the trivy job in this run reads it
+
+  trivy:
+    runs-on: arc-runner-set
+    needs: manifests # because: scans the charts manifests already rendered, so chart versions live in one place
+    env:
+      TRIVY_VERSION: 0.76.1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: rendered-charts
+          path: ${{ runner.temp }}/render
+      - name: install trivy
+        # because: no root on the runner (same as kubeconform); checksum checked so a swapped tarball fails
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin" && cd "$RUNNER_TEMP"
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSLO "$base/$tarball" -O "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          grep " $tarball\$" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "$tarball" -C bin trivy
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          echo "TRIVY_CACHE_DIR=$RUNNER_TEMP/trivy-cache" >> "$GITHUB_ENV"
+      - name: cache key
+        id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      # because: the vuln DB, checks bundle and per-layer results are re-downloaded every run otherwise; one key per day
+      - uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-${{ steps.date.outputs.today }}
+          restore-keys: trivy-
+      - name: config scan (blocking)
+        # because: scan all three before failing, so one red run shows every finding
+        run: |
+          rc=0
+          for target in infra apps "$RUNNER_TEMP/render"; do
+            echo "== $target"
+            trivy config --quiet --severity HIGH,CRITICAL --exit-code 1 \
+              --ignorefile .trivyignore.yaml "$target" || rc=1
+          done
+          exit "$rc"
+      - name: image scan (report only)
+        # because: upstream images, no rebuild path; fixed by a chart or tag bump
+        # because: --ignore-unfixed shows only CVEs a version bump can fix
+        if: always()
+        run: |
+          grep -rhoE 'image: *"?[^" ]+' apps "$RUNNER_TEMP/render" \
+            | sed -E 's/image: *"?//' | sort -u > "$RUNNER_TEMP/images.txt"
+          cat "$RUNNER_TEMP/images.txt"
+          while read -r img; do
+            echo "== $img"
+            trivy image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 "$img"
+          done < "$RUNNER_TEMP/images.txt"
+      # because: plain actions/cache saves only when the job passes; a red config scan would then save nothing
+      - uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-${{ steps.date.outputs.today }}

@@ -1,0 +1,28 @@
+# Accepted Trivy findings: one entry per rule and file, each with a reason and an expiry.
+# Paths are relative to the scan target (apps/ or the rendered charts dir), as Trivy reports them.
+# because: an expired entry stops matching, so the finding turns the check red again for review
+misconfigurations:
+  - id: KSV-0114
+    paths: ["vault.yml"]
+    statement: "Vault injector ClusterRole edits webhook configs: chart default, the injector patches its own webhook CA bundle (accepted 01-Nov-26)"
+    expired_at: 2027-05-01
+
+  - id: KSV-0109
+    paths: ["garage/configmap.yml"]
+    statement: "False positive: the key name api_bind_addr matched a secret pattern; no secret in this ConfigMap (accepted 01-Nov-26)"
+    expired_at: 2027-05-01
+
+  - id: KSV-0053
+    paths: ["garage/init-job.yml"]
+    statement: "garage-init needs pods/exec create to run the Garage CLI; already limited to pod garage-0 (accepted 01-Nov-26)"
+    expired_at: 2027-05-01
+
+  - id: KSV-0118
+    paths: ["forgejo/deployment.yml"]
+    statement: "Forgejo standard image starts as root; fix is the -rootless image, which needs a data migration (accepted 01-Nov-26)"
+    expired_at: 2027-05-01
+
+  - id: KSV-0014
+    paths: ["forgejo/deployment.yml"]
+    statement: "Forgejo standard image writes outside /data at start; same fix as KSV-0118 (accepted 01-Nov-26)"
+    expired_at: 2027-05-01
