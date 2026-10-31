@@ -3,6 +3,10 @@ name: notify-merge
 on:
   push:
     branches: [main] # because: role ci only accepts ref refs/heads/main
+    # because: docs-only merges change nothing ArgoCD syncs, so they send no message
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
 
 permissions:
   id-token: write # because: lets the job ask GitHub for its OIDC JWT (grants nothing in Vault)
