@@ -29,8 +29,8 @@ CI has two jobs: validate every PR before merge (in GitOps, merge = deploy, so t
 ## Consequences
 
 - **CI runs inside the cluster**: a malicious job executes next to the platform. Mitigated: repo-level runners on a private repo (only this repo's jobs land here), non-root pods, and the PR workflow has `contents: read` and no `id-token`, so PR code cannot log in to Vault (only `main` can, via `notify-merge`). Not covered: no NetworkPolicy on runner egress; a separate cluster or namespace isolation for runners would be the prod answer.
-- **Runner image `actions-runner:latest`**: unpinned, so a rebuild may pull a different runner. Prod: pin a version or digest.
-- **Negative tests deferred**: wrong repo, branch or audience must be refused by Vault; designed in, not yet proven by a failing run.
+- **Runner image pinned** (`actions-runner:2.338.2`): every rebuild gets the same runner. Must be bumped within 30 days of a new runner release, or GitHub stops sending jobs.
+- **No negative login tests**: skipped (01-Nov-26). The role was reviewed instead and hardened: `repository_id` binding and `token_max_ttl`.
 - **ARC GitHub App key outside Vault**: ARC needs it before Vault exists; kept in gitignored `.env` + `.pem`, loaded by `scripts/bootstrap-secrets.sh` (ADR-0004).
 - **Runner pods share box RAM** with the platform; `maxRunners: 2` caps it.
 
