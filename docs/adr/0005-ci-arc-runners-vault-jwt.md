@@ -14,9 +14,9 @@ CI has two jobs: validate every PR before merge (in GitOps, merge = deploy, so t
 - ARC: two ArgoCD apps, controller (`arc-controller`) and a repo-level runner scale set (`arc-runners`, `runs-on: arc-runner-set`). `minRunners: 0`, `maxRunners: 2`: one pod per job, deleted after. Runner pods run non-root, no privilege escalation, all capabilities dropped. Runners connect outbound to GitHub; nothing inbound.
 - Vault JWT auth: Vault verifies the job's OIDC token against GitHub's published keys (`oidc_discovery_url`), so no shared secret exists. Role `ci` binds:
   - `bound_audiences: vault-k8s-gitops-platform` (a token requested for another service is refused),
-  - `bound_claims`: this repository and `refs/heads/main` only,
+  - `bound_claims`: this repository's numeric `repository_id` (survives a rename; a new repo reusing the name cannot match) and `refs/heads/main` only,
   - policy `ci`: `read` on `secret/data/notify/discord` only,
-  - `token_ttl: 5m` (about one job; default would be 768h).
+  - `token_ttl: 5m` (about one job; default would be 768h), `token_max_ttl: 10m` (renewals cannot stretch it).
 - The job reaches Vault at its in-cluster Service (`http://vault.vault.svc:8200`).
 
 ## Rejected
