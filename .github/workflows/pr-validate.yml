@@ -55,11 +55,12 @@ jobs:
             apps/forgejo apps/garage argocd
       - name: helm template (vault)
         # chart version must match targetRevision in argocd/vault-app.yml
+        # because: --skip-tests drops the Helm test pod, which ArgoCD never deploys
         # because: tee keeps a copy of each render for the trivy job
         run: |
           mkdir -p "$RUNNER_TEMP/render"
           helm template vault vault --repo https://helm.releases.hashicorp.com \
-            --version 0.34.1 -n vault -f apps/vault/values.yml \
+            --version 0.34.1 -n vault -f apps/vault/values.yml --skip-tests \
             | tee "$RUNNER_TEMP/render/vault.yml" \
             | kubeconform -strict -summary -schema-location default -schema-location "$CRD_SCHEMAS" -
       - name: helm template (loki)
@@ -110,8 +111,8 @@ jobs:
       - name: cache key
         id: date
         run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
-        # because: the vuln DB and checks bundle are re-downloaded every run otherwise; one key per day
+      # because: the vuln DB, checks bundle and per-layer results are re-downloaded every run otherwise; one key per day
+      - uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/trivy-cache
           key: trivy-${{ steps.date.outputs.today }}
@@ -122,11 +123,13 @@ jobs:
           rc=0
           for target in infra apps "$RUNNER_TEMP/render"; do
             echo "== $target"
-            trivy config --severity HIGH,CRITICAL --exit-code 1 "$target" || rc=1
+            trivy config --quiet --severity HIGH,CRITICAL --exit-code 1 \
+              --ignorefile .trivyignore.yaml "$target" || rc=1
           done
           exit "$rc"
       - name: image scan (report only)
         # because: upstream images, no rebuild path; fixed by a chart or tag bump
+        # because: --ignore-unfixed shows only CVEs a version bump can fix
         if: always()
         run: |
           grep -rhoE 'image: *"?[^" ]+' apps "$RUNNER_TEMP/render" \
@@ -134,5 +137,11 @@ jobs:
           cat "$RUNNER_TEMP/images.txt"
           while read -r img; do
             echo "== $img"
-            trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 "$img"
+            trivy image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 "$img"
           done < "$RUNNER_TEMP/images.txt"
+      # because: plain actions/cache saves only when the job passes; a red config scan would then save nothing
+      - uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-${{ steps.date.outputs.today }}
