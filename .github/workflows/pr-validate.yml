@@ -3,6 +3,11 @@ name: pr-validate
 on:
   pull_request:
     branches: [main]
+  # because: caches saved on a PR are readable only by that PR; a run on main saves one cache every PR can restore
+  # no schedule: the cluster is often off, and a job queued while ARC is offline never starts
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 # because: checks only read the repo; no id-token (Vault login is a separate workflow), no write
 permissions:
@@ -113,6 +118,7 @@ jobs:
         run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
       # because: the vuln DB, checks bundle and per-layer results are re-downloaded every run otherwise; one key per day
       - uses: actions/cache/restore@v6
+        id: cache
         with:
           path: ${{ runner.temp }}/trivy-cache
           key: trivy-${{ steps.date.outputs.today }}
@@ -140,8 +146,9 @@ jobs:
             trivy image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 "$img"
           done < "$RUNNER_TEMP/images.txt"
       # because: plain actions/cache saves only when the job passes; a red config scan would then save nothing
+      # because: PRs only restore (one cache on main, not one per PR); skip when today's key already exists
       - uses: actions/cache/save@v6
-        if: always()
+        if: always() && github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/trivy-cache
           key: trivy-${{ steps.date.outputs.today }}
