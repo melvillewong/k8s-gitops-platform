@@ -13,7 +13,7 @@ In GitOps, merge = deploy, so the PR is the only gate. `pr-validate` already che
 
 - **Config scan, blocking**: `trivy config` on `infra/`, `apps/` and the rendered Helm charts fails the PR on HIGH/CRITICAL misconfigurations. Charts are scanned as rendered (`helm template`), because only the render holds the real security context and images.
 - **Image scan, report-only**: `trivy image` on every `image:` in the manifests and renders prints fixable HIGH/CRITICAL CVEs and never fails the job. Upstream images have no rebuild path here; the fix is a chart or tag bump.
-- Trivy is installed from a pinned, checksum-verified release tarball. The vulnerability DB and checks bundle are cached per day.
+- Trivy is installed from a pinned, checksum-verified release tarball. The vulnerability DB and checks bundle are cached per day, saved by runs on `main` and only restored by PRs.
 - Accepted findings live in `.trivyignore.yaml`: one rule in one file per entry, with a reason and an expiry date.
 
 ## Rejected
