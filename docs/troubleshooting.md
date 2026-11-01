@@ -126,3 +126,11 @@ Problems hit while building. Symptom, cause, fix.
 - **Symptom**: `grafana-init-sc-datasources` logs `Initial sync complete` then repeats `Loading incluster config...` forever; `vault-agent-init` waits `PodInitializing`; old pod keeps running; app `Degraded` after the 10 min progress deadline.
 - **Cause**: the init container takes `METHOD` from `sidecar.datasources.watchMethod` (default `WATCH`), which never exits; init containers run in order, so the pod never starts.
 - **Fix**: `sidecar.datasources.watchMethod: LIST` (list once, write, exit). Do not delete the old pod: the Deployment removes it once the new one is Ready.
+
+## CI
+
+### Job stays `Queued` forever after the cluster comes back
+
+- **Symptom**: a PR or push started a job while the cluster was down (runner scale set shows offline in GitHub); once ARC is running again, the job never starts.
+- **Likely cause**: the job was queued while no ARC listener was connected, and the listener does not pick it up after it reconnects.
+- **Fix**: once ARC is up, cancel the run and re-run it in GitHub (`gh run cancel <id>`, then `gh run rerun <id>`).
