@@ -26,27 +26,12 @@ left the workload set ambiguous.
 - Imperative one-shots inside a workload (e.g. Garage layout/bucket/key init)
   = Kubernetes Jobs with an ArgoCD `PostSync` hook, kept idempotent.
 
-```
-  Git (GitHub) = desired state (apps/*)
-        │  ArgoCD pulls, diffs, reconciles (continuous)
- ═══════╪══════════════════════════════════════  GitOps line
-  ARGO  │  Garage · Loki · Vault · observability · Forgejo · services
- ═══════╪══════════════════════════════════════  bootstrap line
-  TF platform : ArgoCD install (+ bootstrap creds)
- ──────────────────────────────────────────────
-  TF cluster  : k3d (nodes, kubeconfig)
- ──────────────────────────────────────────────
-  Host / Docker
-```
-
-Mermaid (renders on GitHub):
-
 ```mermaid
 flowchart TB
   subgraph GIT["Git source of truth (GitHub)"]
     APPS["apps/*  (desired state)"]
   end
-  subgraph ARGO["ArgoCD layer — GitOps (continuous reconcile)"]
+  subgraph ARGO["ArgoCD layer: GitOps (continuous reconcile)"]
     G["Garage"]:::app
     L["Loki"]:::app
     V["Vault"]:::app
@@ -87,7 +72,7 @@ flowchart TB
   independent of cluster state. ArgoCD is not limited to GitHub (Forgejo is a
   normal, Gitea-compatible Git server Argo supports); the constraint is a
   **bootstrap cycle**, not tooling. Which side is the *primary* source is a
-  separate choice (see the Forgejo-primary variant below).
+  separate choice (see "Considered, not built" below).
 - Sourcing apps from the in-cluster Forgejo that ArgoCD itself deploys is a
   chicken-egg: fresh cluster → Argo up → needs apps from Forgejo → Forgejo not
   deployed yet → deadlock.
@@ -96,36 +81,9 @@ flowchart TB
   (app repos, dev workflow) may migrate to Forgejo once it is up (repoint
   `Application.repoURL`; Argo can watch GitHub and Forgejo in parallel).
 
-## Bootstrap variant: Forgejo-primary (when GitHub is the unreliable side)
+## Considered, not built: Forgejo as primary source
 
-Two roles are separable: **human platform** (push/browse/PR) vs **Argo source**
-(reconcile). The Argo *source* only needs to be reachable when Argo re-syncs;
-the *bootstrap* source only at cold start. Pick per which side is reliable.
-
-- **Default (GitHub reliable):** Argo reads GitHub; Forgejo optional day-2.
-- **Forgejo-primary (GitHub flaky, the target here):**
-  - You push to **Forgejo** (in-cluster, LAN, reliable). Forgejo **push-mirrors
-    to GitHub** as a DR copy.
-  - Point day-2 `Application`s' `repoURL` at **Forgejo**, so reconcile is
-    LAN-local and survives GitHub/WAN outages. GitHub demoted to **DR mirror**.
-  - A GitHub outage then touches nothing: daily work on Forgejo, reconcile from
-    Forgejo, running apps unaffected regardless.
-  - **Cold-start carve-out remains:** the seed that deploys Forgejo cannot live
-    in Forgejo. Source it from GitHub **or** an offline **git bundle** on the
-    box, so even a GitHub outage during a full rebuild is survivable.
-
-Tradeoff table:
-
-| Argo source | Reconcile survives GitHub down? | Cold-start needs |
-|---|---|---|
-| GitHub | no (syncs pause; running apps fine) | GitHub |
-| Forgejo (day-2) | yes | GitHub mirror **or** local git bundle |
-
-**New SPOF caution:** self-hosting Forgejo to dodge GitHub outages makes Forgejo
-(one pod, one PV) a single point of failure. Net reliability improves only with
-backups: Forgejo PV backup (repos + SQLite) + the GitHub push-mirror + local
-clones. Git's distributed nature (every clone = full history) then makes loss
-near-impossible.
+Push to Forgejo, mirror to GitHub, and point day-2 `Application`s at Forgejo so reconcile survives a GitHub outage. Not built: it makes Forgejo (one pod, one PV) a single point of failure that needs its own backups; here Forgejo is only a sample stateful app.
 
 ## Consequences
 
@@ -137,7 +95,7 @@ near-impossible.
   local step (`mise run vault`) after Garage init, so the rebuild order
   is fixed there.
 - Imperative bootstraps (Garage init) need idempotent PostSync-hook Jobs.
-- Webhook race on a fresh rebuild: a Vault consumer pod created before the Vault agent injector's webhook exists is never injected. Fixed by a targeted restart at the end of `mise run vault` (only pods not injected or stuck in agent backoff), not by sync waves: Vault stays NotReady until the manual unseal, so later waves would block on it (found in the 23-Oct-26 DR drill).
+- Webhook race on a fresh rebuild (Vault consumer created before the injector): fixed by a targeted restart in `mise run vault`, not sync waves, because Vault stays NotReady until the manual unseal (ADR-0004).
 - Rejected: TF `helm_release` for all workloads (drift, creds-in-TF, no
   reconcile); a second in-cluster Git as the bootstrap source (chicken-egg).
 
