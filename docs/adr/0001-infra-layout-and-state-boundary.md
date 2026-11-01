@@ -25,8 +25,6 @@ apps/             # GitOps manifests, reconciled by ArgoCD (not IaC)
   state**; platform consumes cluster's kubeconfig output.
 - `infra/` = the IaC boundary. `apps/` = not IaC (Git + ArgoCD, no TF state).
   TF owns up to and including ArgoCD; ArgoCD owns `apps/`.
-- Grow `platform` as **child modules in the same state** (`moved {}` blocks =
-  no destroy). Carve a separate state only when blast-radius/size demands it.
 
 ## Rationale
 
@@ -36,7 +34,6 @@ apps/             # GitOps manifests, reconciled by ArgoCD (not IaC)
   provider init).
 - Nesting under `infra/` encodes the TF-vs-ArgoCD boundary; 2 levels, room for
   `infra/dns` etc.
-- Child-module-first avoids premature, costly cross-state migrations.
 
 ## Consequences
 
@@ -46,7 +43,5 @@ apps/             # GitOps manifests, reconciled by ArgoCD (not IaC)
 
 ## Related
 
-ADR-0002 (accepted): object store = Garage, no native state locking.
-ADR-0003 (accepted): refines "TF owns up to ArgoCD" into an explicit delivery
-boundary; `infra/platform` shrinks to ~just the ArgoCD install, all other
-workloads (Garage, Loki, Vault, observability) move to `apps/` as ArgoCD apps.
+ADR-0002 (Garage; both states stay local). ADR-0003 (`infra/platform` shrinks
+to the ArgoCD install; all workloads move to `apps/`).

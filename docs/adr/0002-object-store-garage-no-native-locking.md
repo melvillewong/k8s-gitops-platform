@@ -1,4 +1,4 @@
-# ADR-0002: Self-hosted object store — Garage, and accepting no native state locking
+# ADR-0002: Self-hosted object store: Garage, and accepting no native state locking
 
 - Status: accepted (amended 02-Jul-26)
 - Date: 01-Jul-26
@@ -12,9 +12,8 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
 - **Why the flip:** storing `infra/platform` state inside the very cluster that
   state provisions is a circular dependency (Garage down → no `terraform` to
   repair it), the same chicken-egg that already forces `infra/cluster` local.
-  Remote S3 backend + locking + versioning are already demonstrated in the
-  `learn-terraform` CV entry, so building them again here added complexity
-  (two-phase bootstrap, no-lock caveat) for zero new signal.
+  A remote S3 backend with locking and versioning would add complexity
+  (two-phase bootstrap, no-lock caveat) and show nothing new.
 - **Garage now justifies itself as a runtime data-plane store**, not a state
   store. Sole confirmed consumer: **Loki chunks**, a write-once /
   immutable-blob workload Garage serves cleanly. Forgejo blobs stay on local
@@ -24,8 +23,6 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
   locked object; Loki chunks need no mutual exclusion.
 - **Kept:** Garage over MinIO (below). **Dropped:** the `s3` backend block,
   `use_lockfile` discussion as a live concern, and the state-migration bootstrap.
-- CV bullet is now data-plane: "self-hosted S3-compatible object store backing
-  Loki log chunks", non-dup with the AWS S3 state-backend entry.
 
 ## Re-check (01-Oct-26): still no locking; why object storage at all
 
@@ -41,21 +38,15 @@ longer holds Terraform state. Both `infra/cluster` and `infra/platform` keep
   snapshots via restic/Velero), Forgejo LFS/attachments, traces if Tempo is
   added. Still never Terraform state.
 
-The original decision text below is retained for history.
+<details>
+<summary>Original decision (01-Jul-26), superseded for Terraform state</summary>
 
 ## Context
 
 The platform needs a self-hosted, S3-compatible object store for the Terraform
 `s3` state backend and later for Loki chunks and backups.
 
-MinIO was the original pick. It is now unusable as an open dependency:
-
-- May 2025: breaking release stripped management features from the community
-  edition.
-- Oct 2025: stopped publishing community Docker images / binaries.
-- Dec 2025: co-founder set the repo README to "maintenance mode".
-- 25-Apr-26: `minio/minio` archived, read-only. No new features, no
-  guaranteed security patches; official redirect is proprietary AIStor.
+MinIO was the original pick, but its community edition lost features (May 2025), stopped shipping images (Oct 2025) and was archived (25-Apr-26), with no guaranteed security patches.
 
 Building a portfolio on an archived, unpatched store is a poor security and
 maintenance story. We need a maintained, self-hostable S3 replacement.
@@ -107,8 +98,8 @@ Use **Garage** (Deuxfleurs, Rust) as the single self-hosted object store, and
   out-of-band state backup.
 - The `s3` backend `region` is a required-but-cosmetic `"garage"`; creds are a
   Garage-issued access/secret key, not MinIO root user/password.
-- CV bullet drops any "locking" claim: it says "self-hosted S3-compatible state
-  backend", not "native locking without DynamoDB".
+
+</details>
 
 ## Related
 

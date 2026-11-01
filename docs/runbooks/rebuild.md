@@ -7,7 +7,7 @@ Full rebuild: `mise run down` then `mise run up`. One step stays manual (`mise r
 The cluster may hold the only live copy of some values. Pull them into `.env` (and the password manager) first.
 
 ```bash
-# Repo PAT (GitHub shows it only once)
+# Repo PAT, private repo only (GitHub shows it only once)
 kubectl -n argocd get secret repo-k8s-gitops-platform -o jsonpath='{.data.password}' | base64 -d; echo
 
 # ARC GitHub App IDs

@@ -33,10 +33,6 @@ Problems hit while building. Symptom, cause, fix.
 - **Cause**: compared against last-polled rev (~3 min poll).
 - **Fix**: `kubectl -n argocd annotate application <app> argocd.argoproj.io/refresh=hard --overwrite`.
 
-### `argocd` CLI: `server address unspecified`
-
-- **Fix**: `argocd login <host>:<port> --username admin --password <pw> --insecure --grpc-web`.
-
 ## Terraform / Helm
 
 ### `helm_release.argocd: Still creating...` for minutes
@@ -49,7 +45,7 @@ Problems hit while building. Symptom, cause, fix.
 
 - **Cause**: normal. `mise run down` deletes the node containers, so every image is pulled again; each node pulls separately, and Helm waits for all pods Ready.
 - **Check**: `kubectl -n argocd get events | grep Pulled` shows each pull's time.
-- **Speed-up (not done)**: k3d registry cache (pull-through mirror outside the cluster) survives `down`, so rebuilds reuse images. Consider at the DR drill.
+- **Speed-up (not done)**: k3d registry cache (pull-through mirror outside the cluster) survives `down`, so rebuilds reuse images.
 
 ### `cannot re-use a name that is still in use`
 
@@ -63,7 +59,7 @@ Problems hit while building. Symptom, cause, fix.
 
 - **Cause**: kubelet never confirmed container death; StatefulSet can't recreate same-name pod, so apply hangs. Deployments are unaffected: random-suffix pod names let a new pod run beside the stuck one.
 - **Fix**: `kubectl -n argocd delete pod <pod> --grace-period=0 --force`. Brief `Terminating` (under 30s) is normal.
-- **Caveat**: `--force` assumes the old container is truly dead (safe on single-node k3d after a reboot); on a multi-node cluster with a merely unreachable node it risks two writers.
+- **Caveat**: `--force` assumes the old container is truly dead (safe on k3d after a reboot, where every node restarted with the host); on a real cluster with a merely unreachable node it risks two writers.
 
 ### Refresh does nothing, apps stuck `Unknown`, pods `Pending`/`Terminating` after suspend
 
@@ -85,7 +81,7 @@ Problems hit while building. Symptom, cause, fix.
 ### Loki `CrashLoopBackOff` after a rebuild: `no EC2 IMDS role found`
 
 - **Symptom**: loki app `Progressing`; `loki-0` crash-loops with `init compactor: ... get credentials: failed to refresh cached credentials, no EC2 IMDS role found`; the pod has no `vault-agent-init` init container.
-- **Cause**: cross-app race on a fresh rebuild. `loki-0` was created (03:18:33) before the Vault agent injector and its webhook existed (03:18:35), so the API server never called the webhook and the pod went through unchanged. With no `/vault/secrets/aws-credentials`, the AWS SDK falls back to EC2 metadata. `failurePolicy: Fail` only applies once the webhook config exists. Earlier runs were lucky (or Loki was added after Vault was up).
+- **Cause**: cross-app race on a fresh rebuild. `loki-0` was created 2 s before the Vault agent injector and its webhook existed, so the API server never called the webhook and the pod went through unchanged. With no `/vault/secrets/aws-credentials`, the AWS SDK falls back to EC2 metadata. `failurePolicy: Fail` only applies once the webhook config exists. Earlier runs were lucky (or Loki was added after Vault was up).
 - **Fix**: `mise run vault` (re-run is safe): at the end it restarts pods labelled `vault-inject=true` that have no `vault-agent-init` or are stuck in its backoff; the new pod gets injected. By hand: `kubectl -n logging delete pod loki-0`.
 - **Prevent**: already in the rebuild flow (`mise run vault` runs after `up`). Sync waves were rejected (ADR-0003): Vault stays NotReady until unsealed, so later waves would wait on a manual step.
 - **Lesson**: a mutating webhook only acts on objects created after it is registered; anything earlier needs a restart.
@@ -103,7 +99,7 @@ Problems hit while building. Symptom, cause, fix.
 ### `GarageDown` fires on every rebuild, resolves ~5 min later
 
 - **Symptom**: Discord `[FIRING] GarageDown` ~1-2 min after a rebuild finishes, `[RESOLVED]` ~5 min after that; Garage pod Ready the whole time. Same on all 3 DR drills.
-- **Cause**: Prometheus started (12:33:15) with a config generated before Garage's ServiceMonitor existed; the operator updated its config Secret, but the reloader saw it only when the kubelet refreshed the mounted file (reload 12:36:21, first scrape 12:36:56). `absent(up{job="garage"} == 1)` was true for 3.5 min, past `for: 2m`. Resolved late because Alertmanager `group_interval: 5m` batches group updates.
+- **Cause**: Prometheus started with a config generated before Garage's ServiceMonitor existed; the operator updated its config Secret, but the reloader saw it only when the kubelet refreshed the mounted file (~3 min later). `absent(up{job="garage"} == 1)` was true for 3.5 min, past `for: 2m`. Resolved late because Alertmanager `group_interval: 5m` batches group updates.
 - **Fix**: rule ignores Prometheus's first 10 min: `... unless on() (time() - process_start_time_seconds{job="monitoring-kube-prometheus-prometheus", container="prometheus"} < 600)`.
 - **Check**: Prometheus logs `Loading configuration file` times vs `ALERTS{alertname="GarageDown"}` history; query via `kubectl get --raw /api/v1/namespaces/monitoring/services/monitoring-kube-prometheus-prometheus:9090/proxy/api/v1/query?query=...` (the image has no `wget`).
 - **Lesson**: `absent()` alerts fire on any missing target, including "not configured yet"; ArgoCD Healthy does not mean scraping has started.
